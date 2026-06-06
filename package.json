@@ -1,0 +1,54 @@
+{
+  "name": "react-docgen-ai",
+  "version": "1.0.0",
+  "description": "CLI tool for auto-commenting and generating docs for React apps using local LLM",
+  "type": "module",
+  "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
+  "bin": {
+    "react-docgen-ai": "./bin/react-docgen-ai.js"
+  },
+  "scripts": {
+    "build": "tsc && npm run copy-prompts",
+    "copy-prompts": "node -e \"require('fs-extra').copySync('src/prompts', 'dist/prompts')\"",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.0",
+    "@babel/types": "^7.23.0",
+    "axios": "^1.6.0",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.1.1",
+    "globby": "^13.2.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/globby": "^6.1.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.8.0",
+    "babel-jest": "^30.2.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.2.0"
+  },
+  "keywords": [
+    "react",
+    "documentation",
+    "ai",
+    "cli",
+    "typescript",
+    "docgen"
+  ],
+  "author": "AI Docgen",
+  "license": "MIT"
+}

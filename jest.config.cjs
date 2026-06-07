@@ -19,14 +19,14 @@ module.exports = {
       useESM: true,
       tsconfig: {
         esModuleInterop: true,
-        allowSyntheticDefaultImports: true
+        allowSyntheticDefaultImports: true,
+        module: 'ESNext',
+        moduleResolution: 'bundler'
       }
     }],
     '^.+\\.js$': 'babel-jest'
   },
-  transformIgnorePatterns: [
-    'node_modules/'
-  ],
+  transformIgnorePatterns: [],
   extensionsToTreatAsEsm: ['.ts'],
   testTimeout: 30000,
   verbose: true

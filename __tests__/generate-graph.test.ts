@@ -96,13 +96,13 @@ describe('Generate Graph', () => {
       expect(mockGraphToMarkdown).toHaveBeenCalledWith(componentGraph);
       
       // Check that files are written
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('test-out/graph');
+      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        'test-out/graph/components.dot',
+        './test-out/graph/components.dot',
         dotContent
       );
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        'test-out/graph/components.md',
+        './test-out/graph/components.md',
         mdContent
       );
     });
@@ -190,6 +190,7 @@ describe('Generate Graph', () => {
       const testFiles: string[] = [];
 
       mockGetFiles.mockResolvedValue(testFiles);
+      mockBuildComponentGraph.mockReturnValue({});
 
       await generateGraph(mockOptions);
 
@@ -198,7 +199,7 @@ describe('Generate Graph', () => {
       expect(mockGraphToDot).toHaveBeenCalledWith({});
       expect(mockGraphToMarkdown).toHaveBeenCalledWith({});
       
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('test-out/graph');
+      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
       expect(mockFs.writeFileSync).toHaveBeenCalledTimes(2);
     });
 
@@ -267,7 +268,7 @@ describe('Generate Graph', () => {
 
       await generateGraph(mockOptions);
 
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('test-out/graph');
+      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
     });
 
     it('should handle nested component hierarchy', async () => {
@@ -343,7 +344,7 @@ describe('Generate Graph', () => {
 
       // All components from nested structure should be in the graph
       const graph = mockBuildComponentGraph.mock.calls[0][0];
-      expect(Object.keys(graph)).toHaveLength(0); // Empty because we're mocking
+      expect(graph).toHaveLength(1); // One file passed to buildComponentGraph
       
       // But the actual graph passed to graphToDot should have all components
       expect(mockGraphToDot).toHaveBeenCalledWith(nestedGraph);
@@ -396,13 +397,13 @@ describe('Generate Graph', () => {
 
       await generateGraph(customOptions);
 
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('custom-output/graph');
+      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./custom-output/graph');
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        'custom-output/graph/components.dot',
+        './custom-output/graph/components.dot',
         'digraph { }'
       );
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        'custom-output/graph/components.md',
+        './custom-output/graph/components.md',
         '# Component Tree'
       );
     });

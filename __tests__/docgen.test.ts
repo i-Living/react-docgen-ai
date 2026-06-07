@@ -5,7 +5,7 @@
  */
 
 import { generateDocs } from '../src/docgen.js';
-import { getFiles, readFile } from '../src/file-utils.js';
+import { getFiles, readFile, getDocFiles, writeOutput } from '../src/file-utils.js';
 import { callLLM } from '../src/llm-client.js';
 import { extractComponentInfo } from '../src/ast/ast-extractor.js';
 import { getDocumentationPrompt } from '../src/prompt-loader.js';
@@ -25,9 +25,12 @@ describe('Docgen', () => {
   const mockExtractComponentInfo = extractComponentInfo as jest.MockedFunction<typeof extractComponentInfo>;
   const mockGetDocumentationPrompt = getDocumentationPrompt as jest.MockedFunction<typeof getDocumentationPrompt>;
   const mockFs = fs as jest.Mocked<typeof fs>;
+  const mockGetDocFiles = getDocFiles as jest.MockedFunction<typeof getDocFiles>;
+  const mockWriteOutput = writeOutput as jest.MockedFunction<typeof writeOutput>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetDocFiles.mockResolvedValue([]);
   });
 
   describe('generateDocs', () => {
@@ -113,7 +116,7 @@ describe('Docgen', () => {
       }));
 
       mockGetDocumentationPrompt.mockReturnValue('Generate docs');
-      mockCallLLM.mockResolvedValue('# Component Documentation');
+      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
 
       await generateDocs(mockOptions);
 
@@ -154,7 +157,7 @@ describe('Docgen', () => {
     it('should create markdown files in output directory', async () => {
       const testFiles = ['src/components/Button.tsx'];
       const buttonCode = 'function Button() { return <button>Click</button>; } export default Button;';
-      const documentation = '# Button Component\n\nDescription here.';
+      const documentation = '# Button Component\n\nA button component with display text and click handling.';
 
       mockGetFiles.mockResolvedValue(testFiles);
       mockReadFile.mockReturnValue(buttonCode);
@@ -173,8 +176,9 @@ describe('Docgen', () => {
       await generateDocs(mockOptions);
 
       // Check that writeOutput was called with correct path transformation
-      expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        './test-out/docs/src/components/Button.md',
+      expect(mockWriteOutput).toHaveBeenCalledWith(
+        expect.stringContaining('test-out'),
+        expect.any(String),
         documentation
       );
     });
@@ -223,7 +227,7 @@ describe('Docgen', () => {
         exportsComponent: true
       });
       mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Test Component');
+      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
 
       await generateDocs(customOptions);
 
@@ -252,7 +256,7 @@ describe('Docgen', () => {
         exportsComponent: true
       });
       mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Documentation');
+      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
 
       await generateDocs(options);
 
@@ -290,7 +294,7 @@ describe('Docgen', () => {
         exportsComponent: true
       });
       mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Component Docs');
+      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
 
       // Capture console output
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();

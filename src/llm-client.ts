@@ -72,6 +72,20 @@ function cleanLLMResponse(response: string): string {
  * @param options - Дополнительные опции API
  * @returns Promise с текстовым ответом от LLM
  */
+/**
+ * Определяет, использовать ли chat completions формат по URL
+ */
+function isChatApi(api: string): boolean {
+  return api.includes('chat/completions') || api.includes('v1/chat/completions');
+}
+
+/**
+ * Извлекает текст ответа из chat completions формата
+ */
+function extractChatResponse(data: any): string {
+  return data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.text || '';
+}
+
 export async function callLLM(
   api: string, 
   prompt: string, 
@@ -83,19 +97,30 @@ export async function callLLM(
     temperature = 0.1 
   } = options;
 
+  // Определяем формат API по URL
+  const useChat = isChatApi(api);
+
   // Формируем payload для отправки в API
-  const requestPayload = {
-    prompt,
-    max_tokens: maxTokens,
-    temperature
-  };
+  const requestPayload = useChat
+    ? {
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+        temperature
+      }
+    : {
+        prompt,
+        max_tokens: maxTokens,
+        temperature
+      };
 
   try {
     // Выполняем POST запрос к LLM API
     const response = await axios.post(api, requestPayload);
     
     // Извлекаем текст ответа из различных возможных форматов API
-    let result = response.data.text || response.data.choices?.[0]?.text || '';
+    let result = useChat
+      ? extractChatResponse(response.data)
+      : response.data.text || response.data.choices?.[0]?.text || '';
     
     // Очищаем ответ от артефактов каналов и метаданных
     result = cleanLLMResponse(result);

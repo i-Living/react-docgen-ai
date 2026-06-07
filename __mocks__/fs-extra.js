@@ -1,16 +1,17 @@
-const fs = {
-  existsSync: jest.fn(),
-  statSync: jest.fn(() => ({ isFile: jest.fn(), isDirectory: jest.fn() })),
-  readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  removeSync: jest.fn(),
-  readdirSync: jest.fn(),
-  readJsonSync: jest.fn(),
-  writeJsonSync: jest.fn(),
-  copySync: jest.fn(),
-  moveSync: jest.fn()
-};
+// Mock for fs-extra — auto-mocked by jest
+const mockFs = jest.createMockFromModule('fs-extra');
 
-module.exports = fs;
+// Override specific functions that need special handling
+mockFs.existsSync = jest.fn().mockReturnValue(true);
+mockFs.statSync = jest.fn().mockReturnValue({
+  isFile: jest.fn().mockReturnValue(true),
+  isDirectory: jest.fn().mockReturnValue(false),
+});
+mockFs.readFileSync = jest.fn().mockReturnValue('');
+mockFs.writeFileSync = jest.fn();
+mockFs.ensureDirSync = jest.fn();
+mockFs.mkdirSync = jest.fn();
+mockFs.removeSync = jest.fn();
+mockFs.readdirSync = jest.fn().mockReturnValue([]);
+
+module.exports = mockFs;

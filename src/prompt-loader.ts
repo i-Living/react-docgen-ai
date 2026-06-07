@@ -6,11 +6,42 @@
 
 import fs from "fs-extra";
 import path from "path";
-import { fileURLToPath } from "url";
 
-// Получаем директорию текущего модуля
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Получаем базовую директорию для промптов
+const getPromptsDirectory = (): string => {
+  // Проверяем несколько возможных путей в порядке приоритета
+  const possiblePaths = [
+    // 1. Относительно исходного кода (для разработки и тестов)
+    path.join(process.cwd(), 'src', 'prompts'),
+    // 2. Относительно скомпилированного кода (для production)
+    path.join(process.cwd(), 'dist', 'prompts')
+  ];
+  
+  // Дополнительно проверяем пути относительно текущего модуля (если доступно)
+  try {
+    const currentDir = __dirname;
+    const moduleBasedPaths = [
+      path.join(currentDir, 'prompts'),
+      path.join(currentDir, '..', 'prompts'),
+      path.join(currentDir, '..', '..', 'src', 'prompts'),
+      path.join(currentDir, '..', '..', 'dist', 'prompts')
+    ];
+    
+    possiblePaths.push(...moduleBasedPaths);
+  } catch (error) {
+    // Игнорируем ошибки с __dirname
+  }
+  
+  // Находим первый существующий путь
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      return testPath;
+    }
+  }
+  
+  // Если ничего не найдено, возвращаем стандартный путь
+  return path.join(process.cwd(), 'src', 'prompts');
+};
 
 /**
  * Загружает промпт из файла и заменяет плейсхолдеры
@@ -19,7 +50,7 @@ const __dirname = path.dirname(__filename);
  * @returns Готовый промпт с подставленными значениями
  */
 export function loadPrompt(promptName: string, replacements: Record<string, string>): string {
-  const promptPath = path.join(__dirname, "prompts", `${promptName}.txt`);
+  const promptPath = path.join(getPromptsDirectory(), `${promptName}.txt`);
   
   if (!fs.existsSync(promptPath)) {
     throw new Error(`Промпт не найден: ${promptPath}`);
@@ -29,7 +60,9 @@ export function loadPrompt(promptName: string, replacements: Record<string, stri
   
   // Заменяем все плейсхолдеры вида {{KEY}} на значения
   for (const [key, value] of Object.entries(replacements)) {
-    prompt = prompt.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+    // Заменяем простой строкой для избежания проблем с регулярными выражениями
+    const placeholder = `{{${key}}}`;
+    prompt = prompt.split(placeholder).join(value);
   }
   
   return prompt;

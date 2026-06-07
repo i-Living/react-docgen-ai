@@ -52,7 +52,7 @@ export function extractComponentInfo(code: string): ComponentInfo {
         const funcName = path.node.id.name;
         
         // Если имя начинается с заглавной буквы, это компонент
-        if (funcName.charAt(0).toUpperCase() === funcName.charAt(0)) {
+        if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
           if (!info.name) {
             info.name = funcName;
           }
@@ -76,7 +76,7 @@ export function extractComponentInfo(code: string): ComponentInfo {
           const funcName = path.node.id.name;
           
           // Если имя начинается с заглавной буквы, это компонент
-          if (funcName.charAt(0).toUpperCase() === funcName.charAt(0)) {
+          if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
             if (!info.name) {
               info.name = funcName;
             }
@@ -151,9 +151,9 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
-    // Обрабатываем React хуки
+    // Обрабатываем React хуки и вспомогательные вызовы
     CallExpression(path: NodePath<t.CallExpression>) {
-      // Проверяем вызовы функций
+      // Проверяем вызовы функций по имени
       if (t.isIdentifier(path.node.callee)) {
         const calleeName = path.node.callee.name;
 
@@ -178,6 +178,32 @@ export function extractComponentInfo(code: string): ComponentInfo {
           info.effects.push({
             deps: deps
           });
+        }
+
+        // Обработка React.memo/forwardRef (извлекаем имя из аргумента функции)
+        if (calleeName === "memo" || calleeName === "forwardRef") {
+          const innerFn = path.node.arguments[0];
+          if (innerFn && t.isFunction(innerFn) && (innerFn as any).id?.name) {
+            const funcName = (innerFn as any).id.name;
+            if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+              info.name = funcName;
+            }
+          }
+        }
+      }
+
+      // Обработка React.memo и forwardRef через MemberExpression (React.memo(...))
+      if (t.isMemberExpression(path.node.callee) && 
+          t.isIdentifier(path.node.callee.property) &&
+          (path.node.callee.property.name === "memo" || path.node.callee.property.name === "forwardRef") &&
+          t.isIdentifier(path.node.callee.object) &&
+          path.node.callee.object.name === "React") {
+        const innerFn = path.node.arguments[0];
+        if (innerFn && t.isFunction(innerFn) && (innerFn as any).id?.name) {
+          const funcName = (innerFn as any).id.name;
+          if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+            info.name = funcName;
+          }
         }
       }
     }

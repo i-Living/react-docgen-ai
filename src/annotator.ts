@@ -10,6 +10,9 @@ import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getAnnotationPrompt } from "./prompt-loader.js";
 import { CliOptions } from "./types.js";
 
+/** Режимы аннотирования */
+type AnnotationMode = 'copy' | 'inplace';
+
 /**
  * Создает более строгий промпт для повторных попыток аннотации
  * @param originalPrompt - Оригинальный промпт
@@ -36,119 +39,31 @@ function makePromptMoreStrict(originalPrompt: string, attemptNumber: number): st
 }
 
 /**
- * Выполняет гибридное аннотирование проекта React компонентов
- * Использует AST анализ для понимания структуры и LLM для генерации комментариев
+ * Общая логика аннотирования React компонентов
  * @param opts - Опции командной строки
+ * @param mode - Режим: 'copy' (в выходную папку) или 'inplace' (прямо в файлы)
  */
-export async function annotateProject(opts: CliOptions): Promise<void> {
+async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<void> {
   try {
     // Получаем список файлов для обработки
     const files: string[] = await getFiles(opts.src, opts.extensions);
 
     // Выводим информацию о количестве файлов
-    console.log(`\n📘 Hybrid Annotation: ${files.length} files...\n`);
+    const modeLabel = mode === 'copy' ? 'Hybrid Annotation' : 'In-Place Annotation';
+    console.log(`\n📘 ${modeLabel}: ${files.length} files...\n`);
 
     let skipped = 0;
+    const total = files.length;
 
     // Обрабатываем каждый файл последовательно
-    for (const file of files) {
+    for (let i = 0; i < total; i++) {
+      const file = files[i]!;
       // Читаем содержимое файла
       const code: string = readFile(file);
       
       // Пропускаем файлы с @fileoverview если не указан --force
       if (!opts.force && hasFileoverview(code)) {
-        console.log("⏭️ Skipped (has @fileoverview):", file);
-        skipped++;
-        continue;
-      }
-      
-      // Извлекаем структурную информацию через AST
-      const astInfo = extractComponentInfo(code);
-
-      // Формируем детальный промпт для LLM
-      const prompt = getAnnotationPrompt(astInfo, code);
-
-      // Генерируем код с проверкой изменений (максимум 3 попытки)
-      let attempts = 0;
-      let annotated: string | null = null;
-      let currentPrompt = prompt;
-      
-      while (attempts < 5) {
-        try {
-          // Отправляем запрос к LLM и получаем аннотированный код
-          const result: string = await callLLM(opts.api, currentPrompt);
-          
-          // Проверяем, изменился ли код (игнорируя комментарии)
-          if (!hasCodeChanges(code, result)) {
-            // Код не изменился, применяем результат
-            annotated = result;
-            console.log("✓ Code verification passed:", file);
-            break;
-          } else {
-            attempts++;
-            if (attempts === 5) {
-              console.log("⚠️ Skipped (code changes detected after 5 attempts):", file);
-              console.log("Original length:", code.length, "Result length:", result.length);
-              skipped++;
-              annotated = null; // Помечаем как неуспешный
-              break;
-            }
-            console.log(`⚠️ Code changes detected, attempt ${attempts}/5, retrying with stricter prompt:`, file);
-            console.log("Original length:", code.length, "Result length:", result.length);
-            // Перегенерируем с более строгим промптом
-            currentPrompt = makePromptMoreStrict(prompt, attempts);
-          }
-        } catch (error) {
-          attempts++;
-          if (attempts === 5) {
-            console.log(`❌ Skipped (LLM error after 5 attempts): ${file}`, error);
-            annotated = null; // Помечаем как неуспешный
-            break;
-          }
-          console.log(`❌ LLM error on attempt ${attempts}/5, retrying:`, file);
-          currentPrompt = makePromptMoreStrict(prompt, attempts);
-        }
-      }
-      
-      // Записываем результат только если аннотация успешна
-      if (annotated) {
-        const outPath = writeOutput(opts.out + "/annotated", file, annotated);
-        console.log("✓ Annotated:", outPath);
-      }
-    }
-
-    // Сообщение о завершении процесса
-    console.log(`\n✨ Hybrid annotation completed! (${skipped} files skipped)`);
-  } catch (error) {
-    // Обработка ошибок
-    console.error("❌ Ошибка при аннотировании проекта:", error);
-    throw error;
-  }
-}
-
-/**
- * Выполняет аннотирование файлов непосредственно в исходных файлах (in-place)
- * Использует AST анализ для понимания структуры и LLM для генерации комментариев
- * @param opts - Опции командной строки
- */
-export async function annotateInPlace(opts: CliOptions): Promise<void> {
-  try {
-    // Получаем список файлов для обработки
-    const files: string[] = await getFiles(opts.src, opts.extensions);
-
-    // Выводим информацию о количестве файлов
-    console.log(`\n📘 In-Place Annotation: ${files.length} files...\n`);
-
-    let skipped = 0;
-
-    // Обрабатываем каждый файл последовательно
-    for (const file of files) {
-      // Читаем содержимое файла
-      const code: string = readFile(file);
-      
-      // Пропускаем файлы с @fileoverview если не указан --force
-      if (!opts.force && hasFileoverview(code)) {
-        console.log("⏭️ Skipped (has @fileoverview):", file);
+        console.log(`⏭️ [${i + 1}/${total}] Skipped (has @fileoverview):`, file);
         skipped++;
         continue;
       }
@@ -173,48 +88,67 @@ export async function annotateInPlace(opts: CliOptions): Promise<void> {
           if (!hasCodeChanges(code, result)) {
             // Код не изменился, применяем результат
             annotated = result;
-            console.log("✓ Code verification passed:", file);
+            console.log(`✓ [${i + 1}/${total}] Code verification passed:`, file);
             break;
           } else {
             attempts++;
             if (attempts === 5) {
-              console.log("⚠️ Skipped (code changes detected after 5 attempts):", file);
-              console.log("Original length:", code.length, "Result length:", result.length);
+              console.log(`⚠️ [${i + 1}/${total}] Skipped (code changes detected after 5 attempts):`, file);
+              console.log("  Original length:", code.length, "Result length:", result.length);
               skipped++;
-              annotated = null; // Помечаем как неуспешный
+              annotated = null;
               break;
             }
-            console.log(`⚠️ Code changes detected, attempt ${attempts}/5, retrying with stricter prompt:`, file);
-            console.log("Original length:", code.length, "Result length:", result.length);
-            // Перегенерируем с более строгим промптом
+            console.log(`⚠️ [${i + 1}/${total}] Code changes detected, attempt ${attempts}/5, retrying:`, file);
+            console.log("  Original length:", code.length, "Result length:", result.length);
             currentPrompt = makePromptMoreStrict(prompt, attempts);
           }
         } catch (error) {
           attempts++;
           if (attempts === 5) {
-            console.log(`❌ Skipped (LLM error after 5 attempts): ${file}`, error);
-            annotated = null; // Помечаем как неуспешный
+            console.log(`❌ [${i + 1}/${total}] Skipped (LLM error after 5 attempts): ${file}`, error);
+            annotated = null;
             break;
           }
-          console.log(`❌ LLM error on attempt ${attempts}/5, retrying:`, file);
+          console.log(`❌ [${i + 1}/${total}] LLM error on attempt ${attempts}/5, retrying:`, file);
           currentPrompt = makePromptMoreStrict(prompt, attempts);
         }
       }
       
       // Записываем результат только если аннотация успешна
       if (annotated) {
-        // Записываем результат непосредственно в исходный файл
-        writeInPlace(file, annotated);
-        // Выводим информацию о завершении обработки файла
-        console.log("✓ Annotated in-place:", file);
+        if (mode === 'copy') {
+          const outPath = writeOutput(opts.out + "/annotated", file, annotated);
+          console.log(`✓ [${i + 1}/${total}] Annotated:`, outPath);
+        } else {
+          writeInPlace(file, annotated);
+          console.log(`✓ [${i + 1}/${total}] Annotated in-place:`, file);
+        }
       }
     }
 
     // Сообщение о завершении процесса
-    console.log(`\n✨ In-place annotation completed! (${skipped} files skipped)`);
+    console.log(`\n✨ ${modeLabel} completed! (${skipped} files skipped)`);
   } catch (error) {
-    // Обработка ошибок
-    console.error("❌ Ошибка при аннотировании проекта:", error);
+    console.error("❌ Ошибка при аннотировании:", error);
     throw error;
   }
+}
+
+/**
+ * Выполняет аннотирование проекта React компонентов в выходную директорию
+ * Использует AST анализ для понимания структуры и LLM для генерации комментариев
+ * @param opts - Опции командной строки
+ */
+export async function annotateProject(opts: CliOptions): Promise<void> {
+  return annotateFiles(opts, 'copy');
+}
+
+/**
+ * Выполняет аннотирование файлов непосредственно в исходных файлах (in-place)
+ * Использует AST анализ для понимания структуры и LLM для генерации комментариев
+ * @param opts - Опции командной строки
+ */
+export async function annotateInPlace(opts: CliOptions): Promise<void> {
+  return annotateFiles(opts, 'inplace');
 }

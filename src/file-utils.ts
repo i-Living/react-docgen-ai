@@ -157,14 +157,13 @@ export function removeComments(code: string): string {
   // Удаляем многострочные комментарии (/* comment */) 
   result = result.replace(/\/\*[\s\S]*?\*\//g, '');
   
-  // Удаляем JSDoc комментарии (/** comment */) 
-  result = result.replace(/\/\*\*[\s\S]*?\*\//g, '');
+
   
   // Удаляем однострочные комментарии (// comment) 
   result = result.replace(/(^|\s)\/\/.*$/gm, '$1');
   
-  // Восстанавливаем все защищенные строки
-  result = result.replace(/__STRING_(\d+)__/g, (match, index) => {
+  // Восстанавливаем все защищенные строки и регулярные выражения
+  result = result.replace(/__(STRING|REGEXP)_(\d+)__/g, (match, type, index) => {
     return strings[parseInt(index)] || match;
   });
   
@@ -207,7 +206,11 @@ export function hasCodeChanges(original: string, modified: string): boolean {
 export function outputFileExists(baseOut: string, srcFile: string): boolean {
   const rel: string = path.relative(process.cwd(), srcFile);
   const outPath: string = path.join(baseOut, rel);
-  return fs.existsSync(outPath);
+  try {
+    return fs.statSync(outPath).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -57,7 +57,7 @@ export interface ComponentProp {
   /** Обязательный ли пропс */
   required?: boolean;
   /** Значение по умолчанию */
-  defaultValue?: any;
+  defaultValue?: unknown;
 }
 
 /**
@@ -67,7 +67,7 @@ export interface ComponentState {
   /** Имя переменной состояния */
   variable: string;
   /** Инициализирующее значение */
-  initialValue?: any;
+  initialValue?: unknown;
 }
 
 /**
@@ -77,7 +77,7 @@ export interface ComponentEffect {
   /** Зависимости эффекта */
   deps: string[];
   /** Дополнительные настройки эффекта */
-  options?: any;
+  options?: unknown;
 }
 
 /**

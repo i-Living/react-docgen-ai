@@ -162,12 +162,23 @@ npx react-docgen-ai --src ./src --annotate --opencode
 Режим `--wiki` создаёт Obsidian-совместимую документацию в стиле [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): entity-страницы для каждого компонента с YAML frontmatter, `[[wikilinks]]` между связанными компонентами, index.md и log.md.
 
 ```bash
-# Сгенерировать wiki для всех компонентов в src/
-npx react-docgen-ai --src ./src --wiki ./wiki
+# Сгенерировать wiki в ./wiki (можно без значения)
+npx react-docgen-ai --src ./src --wiki
+
+# Или указать путь явно
+npx react-docgen-ai --src ./src --wiki ./my-wiki
 
 # Wiki + обычная документация одновременно
 npx react-docgen-ai --src ./src --docs --out ./docs --wiki ./wiki
 ```
+
+**Включение по умолчанию через .env:**
+```bash
+# .env
+DOCGEN_WIKI=./wiki
+```
+
+С этой переменной `--wiki` запускается автоматически при каждом вызове `react-docgen-ai --src ./src`.
 
 **Структура wiki:**
 ```
@@ -207,6 +218,7 @@ cp .env.example .env
 | `OPENCODE_DEFAULT_MODEL` | Модель OpenCode по умолчанию (аналог `--opencode-model`) | — |
 | `DOCGEN_OUT` | Выходная директория (аналог `--out`) | `./ai-output` |
 | `DOCGEN_EXTENSIONS` | Расширения файлов (аналог `--extensions`) | `js,jsx,ts,tsx` |
+| `DOCGEN_WIKI` | Директория для LLM Wiki (аналог `--wiki`) | — |
 | `DOCGEN_PARALLEL` | Количество параллельных запросов к LLM (аналог `--parallel`) | `4` |
 
 Приоритет: **CLI аргумент** > **переменная окружения** > **встроенное значение по умолчанию**.
@@ -235,7 +247,7 @@ cp .env.example .env
 | `--dry-run` | Режим сухого прогона (без вызова LLM и записи) | `false` |
 | `--format` | Формат документации: `markdown` или `json` | `markdown` |
 | `--stream` | Использовать streaming для HTTP провайдера | `false` |
-| `--wiki <path>` | Генерировать LLM Wiki (Obsidian-совместимая документация) | — |
+| `--wiki [path]` | Генерировать LLM Wiki (без пути — `./wiki`) | `DOCGEN_WIKI` или — |
 
 > **Примечание:** При указании отдельного файла через `--src`, параметр `--extensions` игнорируется. Файл должен иметь одно из расширений: `js, jsx, ts, tsx`. При указании директории обрабатываются все файлы с указанными расширениями рекурсивно.
 

@@ -9,6 +9,14 @@ import { annotateProject, annotateInPlace } from "./annotator.js";
 import { generateDocs } from "./docgen.js";
 import { generateGraph } from "./generate-graph.js";
 import { CliOptions } from "./types.js";
+import { readEnv, readEnvInt, readEnvFloat } from "./env.js";
+
+// ── Env-умолчания ──────────────────────────────────────────────────────────
+const DEFAULT_API       = readEnv("LLM_API_URL", "http://localhost:8000/completions");
+const DEFAULT_MAX_TOKENS = String(readEnvInt("LLM_MAX_TOKENS", 4096));
+const DEFAULT_TEMP       = String(readEnvFloat("LLM_TEMPERATURE", 0.1));
+const DEFAULT_OUT        = readEnv("DOCGEN_OUT", "./ai-output");
+const DEFAULT_EXTENSIONS = readEnv("DOCGEN_EXTENSIONS", "js,jsx,ts,tsx");
 
 // Инициализируем новый экземпляр командной строки
 const program = new Command();
@@ -26,15 +34,17 @@ program
  */
 program
   .requiredOption("-s, --src <path>", "Путь к исходной директории или отдельному файлу с React компонентами")
-  .option("-o, --out <path>", "Выходная директория для результатов", "./ai-output")
+  .option("-o, --out <path>", "Выходная директория для результатов", DEFAULT_OUT)
   .option("--annotate", "Аннотировать код путем добавления подробных комментариев")
   .option("--annotate-inplace", "Аннотировать код непосредственно в исходных файлах")
   .option("--docs", "Генерировать подробную Markdown документацию для компонентов")
   .option("--graph", "Генерировать граф зависимостей компонентов (DOT и Markdown форматы)")
-  .option("-e, --extensions <exts>", "Расширения файлов для обработки", "js,jsx,ts,tsx")
-  .option("--api <url>", "URL API для локального LLM сервера", "http://localhost:8000/completions")
-  .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", "4096")
-  .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", "0.1")
+  .option("-e, --extensions <exts>", "Расширения файлов для обработки", DEFAULT_EXTENSIONS)
+  .option("--api <url>", "URL API для локального LLM сервера", DEFAULT_API)
+  .option("--opencode", "Использовать OpenCode SDK вместо HTTP запросов к LLM", false)
+  .option("--opencode-model <model>", "Модель для OpenCode (формат: provider/model, например openrouter/anthropic/claude-sonnet-4)", readEnv("OPENCODE_DEFAULT_MODEL", ""))
+  .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
+  .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
   .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false);
 
 /**

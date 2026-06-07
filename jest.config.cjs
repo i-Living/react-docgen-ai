@@ -12,6 +12,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   moduleNameMapper: {
+    '^@opencode-ai/sdk$': '<rootDir>/src/__mocks__/opencode-sdk.js',
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   transform: {

@@ -22,7 +22,9 @@
     "@babel/parser": "^7.23.0",
     "@babel/traverse": "^7.23.0",
     "@babel/types": "^7.23.0",
-    "commander": "^11.1.0"
+    "@opencode-ai/sdk": "^1.16.2",
+    "commander": "^11.1.0",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",

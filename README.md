@@ -156,6 +156,28 @@ npx react-docgen-ai --src ./src --annotate --opencode
 
 Приоритет: `--opencode-model` > `OPENCODE_DEFAULT_MODEL` > модель из профиля OpenCode.
 
+### Конфигурация через .env
+
+Все параметры CLI можно задать через файл `.env` в корне проекта или переменные окружения. CLI аргументы имеют наивысший приоритет.
+
+```bash
+# Скопируйте пример и отредактируйте
+cp .env.example .env
+```
+
+**Поддерживаемые переменные:**
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `LLM_API_URL` | URL LLM API (аналог `--api`) | `http://localhost:8000/completions` |
+| `LLM_MAX_TOKENS` | Максимум токенов (аналог `--max-tokens`) | `4096` |
+| `LLM_TEMPERATURE` | Температура генерации (аналог `--temperature`) | `0.1` |
+| `OPENCODE_DEFAULT_MODEL` | Модель OpenCode по умолчанию (аналог `--opencode-model`) | — |
+| `DOCGEN_OUT` | Выходная директория (аналог `--out`) | `./ai-output` |
+| `DOCGEN_EXTENSIONS` | Расширения файлов (аналог `--extensions`) | `js,jsx,ts,tsx` |
+
+Приоритет: **CLI аргумент** > **переменная окружения** > **встроенное значение по умолчанию**.
+
 ## 📚 API Reference
 
 ### Опции командной строки
@@ -206,6 +228,7 @@ ai-output/
 react-docgen-ai/
 ├── src/
 │   ├── types.ts              # TypeScript типы и интерфейсы
+│   ├── env.ts                # Загрузка .env и env-хелперы
 │   ├── cli.ts                # Командная строка
 │   ├── annotator.ts          # Модуль аннотирования
 │   ├── docgen.ts             # Генератор документации

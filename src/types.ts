@@ -40,6 +40,8 @@ export interface CliOptions {
   format?: OutputFormat;
   /** Использовать streaming для HTTP провайдера */
   stream?: boolean;
+  /** Директория для генерации LLM Wiki (Karpathy-style) */
+  wiki?: string;
 }
 
 /** Формат вывода документации */

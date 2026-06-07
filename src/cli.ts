@@ -8,6 +8,7 @@ import { Command } from "commander";
 import { annotateProject, annotateInPlace } from "./annotator.js";
 import { generateDocs } from "./docgen.js";
 import { generateGraph } from "./generate-graph.js";
+import { generateWiki } from "./wiki-generator.js";
 import { CliOptions } from "./types.js";
 import { readEnv, readEnvInt, readEnvFloat } from "./env.js";
 
@@ -18,6 +19,25 @@ const DEFAULT_TEMP       = String(readEnvFloat("LLM_TEMPERATURE", 0.1));
 const DEFAULT_OUT        = readEnv("DOCGEN_OUT", "./ai-output");
 const DEFAULT_EXTENSIONS = readEnv("DOCGEN_EXTENSIONS", "js,jsx,ts,tsx");
 const DEFAULT_PARALLEL   = String(readEnvInt("DOCGEN_PARALLEL", 4));
+const DEFAULT_WIKI       = readEnv("DOCGEN_WIKI", "");
+
+/**
+ * Определяет путь wiki из CLI-аргумента.
+ * - `--wiki ./path` → ./path
+ * - `--wiki` (без значения) → ./wiki
+ * - ничего → undefined (отключено) или env-значение
+ */
+function resolveWiki(wikiOpt: string | boolean | undefined): string | undefined {
+  if (wikiOpt === true) {
+    // --wiki без значения → дефолтный путь
+    return "./wiki";
+  }
+  if (typeof wikiOpt === "string" && wikiOpt.trim()) {
+    return wikiOpt.trim();
+  }
+  // undefined или пустая строка → отключено
+  return undefined;
+}
 
 // Инициализируем новый экземпляр командной строки
 const program = new Command();
@@ -46,23 +66,26 @@ program
   .option("--prompt-dir <path>", "Директория с кастомными файлами промптов")
   .option("--dry-run", "Режим сухого прогона (без вызова LLM и записи)", false)
   .option("--format <format>", "Формат вывода документации (markdown|json)", "markdown")
-  .option("--stream", "Использовать streaming для HTTP провайдера", false);
+  .option("--stream", "Использовать streaming для HTTP провайдера", false)
+  .option("--wiki [path]", "Генерировать LLM Wiki (Obsidian-совместимая документация) в указанную директорию", DEFAULT_WIKI || undefined);
 
 program.action(async (opts: Record<string, any>) => {
   try {
     // Проверяем, что выбрана хотя бы одна операция
-    if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph) {
-      console.log("❌ Ошибка: Выберите хотя бы одну опцию: --annotate, --annotate-inplace, --docs или --graph");
+    if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph && !opts.wiki) {
+      console.log("❌ Ошибка: Выберите хотя бы одну опцию: --annotate, --annotate-inplace, --docs, --graph или --wiki");
       console.log("\n📖 Использование:");
       console.log("  react-docgen-ai --src ./src --annotate");
       console.log("  react-docgen-ai --src ./src --annotate-inplace");
       console.log("  react-docgen-ai --src ./src --docs");
       console.log("  react-docgen-ai --src ./src --graph");
+      console.log("  react-docgen-ai --src ./src --wiki");
       console.log("  react-docgen-ai --src ./src --annotate --docs --graph");
       process.exit(1);
     }
 
     // Нормализуем типы (Commander возвращает строки)
+    const resolvedWiki = resolveWiki(opts.wiki);
     const normalized: CliOptions = {
       src: opts.src,
       out: opts.out,
@@ -80,6 +103,7 @@ program.action(async (opts: Record<string, any>) => {
       dryRun: opts.dryRun ?? false,
       format: opts.format === "json" ? "json" : "markdown",
       stream: opts.stream ?? false,
+      ...(resolvedWiki ? { wiki: resolvedWiki } : {}),
     };
 
     if (opts.dryRun) {
@@ -102,6 +126,10 @@ program.action(async (opts: Record<string, any>) => {
 
     if (opts.graph) {
       await generateGraph(normalized);
+    }
+
+    if (opts.wiki) {
+      await generateWiki(normalized, opts.wiki);
     }
 
     if (!opts.dryRun) {

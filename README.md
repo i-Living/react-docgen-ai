@@ -10,6 +10,7 @@
 - **Генерация документации** - создание подробной Markdown (и JSON) документации
 - **Генерация графа компонентов** - визуализация зависимостей в форматах DOT и Markdown
 - **TypeScript поддержка** - полностью типизированный код с поддержкой современного JavaScript
+- **LLM Wiki** - генерация Obsidian-совместимой wiki с `[[wikilinks]]`, frontmatter и log.md
 
 ## 🚀 Установка и настройка
 
@@ -156,6 +157,48 @@ npx react-docgen-ai --src ./src --annotate --opencode
 
 Приоритет: `--opencode-model` > `OPENCODE_DEFAULT_MODEL` > модель из профиля OpenCode.
 
+### Генерация LLM Wiki
+
+Режим `--wiki` создаёт Obsidian-совместимую документацию в стиле [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): entity-страницы для каждого компонента с YAML frontmatter, `[[wikilinks]]` между связанными компонентами, index.md и log.md.
+
+```bash
+# Сгенерировать wiki в ./wiki (можно без значения)
+npx react-docgen-ai --src ./src --wiki
+
+# Или указать путь явно
+npx react-docgen-ai --src ./src --wiki ./my-wiki
+
+# Wiki + обычная документация одновременно
+npx react-docgen-ai --src ./src --docs --out ./docs --wiki ./wiki
+```
+
+**Включение по умолчанию через .env:**
+```bash
+# .env
+DOCGEN_WIKI=./wiki
+```
+
+С этой переменной `--wiki` запускается автоматически при каждом вызове `react-docgen-ai --src ./src`.
+
+**Структура wiki:**
+```
+wiki/
+├── index.md           # Каталог всех компонентов со сводками
+├── log.md             # Хронология изменений
+├── entities/          # Страницы React компонентов
+│   ├── button.md
+│   └── header.md
+└── _archive/          # Архивированные страницы (если компонент удалён)
+```
+
+**Возможности:**
+- Персистентность — при повторном запуске обновляется только изменившееся
+- `[[wikilinks]]` — ссылки между компонентами на основе графа зависимостей
+- YAML frontmatter (title, created, updated, tags, source, confidence)
+- Интеграция с Obsidian — открывайте wiki как Obsidian vault
+- Archiving — при удалении исходного файла страница переносится в `_archive/`
+- История изменений в `log.md`
+
 ### Конфигурация через .env
 
 Все параметры CLI можно задать через файл `.env` в корне проекта или переменные окружения. CLI аргументы имеют наивысший приоритет.
@@ -175,6 +218,7 @@ cp .env.example .env
 | `OPENCODE_DEFAULT_MODEL` | Модель OpenCode по умолчанию (аналог `--opencode-model`) | — |
 | `DOCGEN_OUT` | Выходная директория (аналог `--out`) | `./ai-output` |
 | `DOCGEN_EXTENSIONS` | Расширения файлов (аналог `--extensions`) | `js,jsx,ts,tsx` |
+| `DOCGEN_WIKI` | Директория для LLM Wiki (аналог `--wiki`) | — |
 | `DOCGEN_PARALLEL` | Количество параллельных запросов к LLM (аналог `--parallel`) | `4` |
 
 Приоритет: **CLI аргумент** > **переменная окружения** > **встроенное значение по умолчанию**.
@@ -203,6 +247,7 @@ cp .env.example .env
 | `--dry-run` | Режим сухого прогона (без вызова LLM и записи) | `false` |
 | `--format` | Формат документации: `markdown` или `json` | `markdown` |
 | `--stream` | Использовать streaming для HTTP провайдера | `false` |
+| `--wiki [path]` | Генерировать LLM Wiki (без пути — `./wiki`) | `DOCGEN_WIKI` или — |
 
 > **Примечание:** При указании отдельного файла через `--src`, параметр `--extensions` игнорируется. Файл должен иметь одно из расширений: `js, jsx, ts, tsx`. При указании директории обрабатываются все файлы с указанными расширениями рекурсивно.
 
@@ -241,6 +286,7 @@ react-docgen-ai/
 │   ├── annotator.ts          # Модуль аннотирования
 │   ├── docgen.ts             # Генератор документации
 │   ├── generate-graph.ts     # Построитель графа
+│   ├── wiki-generator.ts     # Генератор LLM Wiki (Karpathy-style)
 │   ├── file-utils.ts         # Утилиты файлов
 │   ├── llm-client.ts         # HTTP клиент LLM
 │   ├── opencode-provider.ts  # Провайдер OpenCode SDK

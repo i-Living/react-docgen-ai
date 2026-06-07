@@ -5,7 +5,7 @@
 ## ✨ Возможности
 
 - **AST-анализ** - глубокий анализ структуры React компонентов (JSX, state, effects, handlers, дерево компонентов)
-- **Интеграция с LLM** - работа с локальными LLM моделями (gpt-oss-20b и совместимыми)
+- **Интеграция с LLM** - работа с локальными LLM моделями (gpt-oss-20b и совместимыми) и облачными через OpenCode SDK
 - **Автоматическое аннотирование** - добавление подробных JSDoc комментариев к коду
 - **Генерация документации** - создание подробной Markdown документации
 - **Генерация графа компонентов** - визуализация зависимостей в форматах DOT и Markdown
@@ -116,6 +116,46 @@ python server.py --model_path ./gpt-oss-20b --port 8000
 npx react-docgen-ai --src ./src --annotate --api http://localhost:8000/completions
 ```
 
+### Использование OpenCode SDK
+
+OpenCode SDK подключает облачные LLM (через OpenRouter, Anthropic, OpenAI и др.) без необходимости запускать локальный сервер.
+
+#### Установка OpenCode CLI
+
+```bash
+# Установка OpenCode CLI
+npm install -g @opencode-ai/cli
+
+# Авторизация (откроет браузер)
+opencode auth login
+```
+
+#### Запуск с OpenCode
+
+```bash
+# Использовать модель по умолчанию из профиля OpenCode
+npx react-docgen-ai --src ./src --annotate --opencode
+
+# Указать конкретную модель (OpenRouter)
+npx react-docgen-ai --src ./src --annotate --opencode --opencode-model openrouter/anthropic/claude-sonnet-4
+
+# Полная обработка проекта через OpenCode
+npx react-docgen-ai --src ./src --annotate --docs --graph --out ./output --opencode
+```
+
+> **Примечание:** OpenCode SDK инициализирует сервер OpenCode при первом запросе. Сессии создаются одноразово на каждый промпт и автоматически удаляются после получения ответа.
+
+#### Настройка модели по умолчанию
+
+Модель можно задать через переменную окружения:
+
+```bash
+export OPENCODE_DEFAULT_MODEL=openrouter/anthropic/claude-sonnet-4
+npx react-docgen-ai --src ./src --annotate --opencode
+```
+
+Приоритет: `--opencode-model` > `OPENCODE_DEFAULT_MODEL` > модель из профиля OpenCode.
+
 ## 📚 API Reference
 
 ### Опции командной строки
@@ -130,9 +170,11 @@ npx react-docgen-ai --src ./src --annotate --api http://localhost:8000/completio
 | `--docs` | Включить генерацию документации | `false` |
 | `--graph` | Включить генерацию графа | `false` |
 | `--extensions, -e` | Расширения файлов (только для директорий) | `js,jsx,ts,tsx` |
-| `--api` | URL LLM API | `http://localhost:8000/completions` |
+| `--api` | URL LLM API (не используется с `--opencode`) | `http://localhost:8000/completions` |
 | `--max-tokens` | Максимальное количество токенов | `4096` |
 | `--temperature` | Температура генерации LLM | `0.1` |
+| `--opencode` | Использовать OpenCode SDK вместо HTTP запросов | `false` |
+| `--opencode-model` | Модель для OpenCode (например `openrouter/anthropic/claude-sonnet-4`) | из профиля OpenCode |
 
 > **Примечание:** При указании отдельного файла через `--src`, параметр `--extensions` игнорируется. Файл должен иметь одно из расширений: `js, jsx, ts, tsx`. При указании директории обрабатываются все файлы с указанными расширениями рекурсивно.
 
@@ -169,7 +211,9 @@ react-docgen-ai/
 │   ├── docgen.ts             # Генератор документации
 │   ├── generate-graph.ts     # Построитель графа
 │   ├── file-utils.ts         # Утилиты файлов
-│   ├── llm-client.ts         # Клиент LLM
+│   ├── llm-client.ts         # HTTP клиент LLM
+│   ├── opencode-provider.ts  # Провайдер OpenCode SDK
+│   ├── llm.ts               # Фасад выбора провайдера LLM
 │   └── ast/                  # AST анализ
 │       ├── ast-extractor.ts  # Экстрактор компонентов
 │       └── component-graph.ts # Граф зависимостей
@@ -232,10 +276,22 @@ dot -Tpdf components.dot -o components.pdf
 **Решение:** Убедитесь, что LLM сервер запущен и доступен по указанному URL.
 
 **TypeScript ошибки**
-```
+```text
 ❌ Cannot find module 'globby'
 ```
 **Решение:** Установите зависимости командой `bun install`.
+
+**OpenCode SDK не найден**
+```text
+❌ OpenCode SDK недоступен. Установите: npm install -g @opencode-ai/cli
+```
+**Решение:** Установите OpenCode CLI глобально: `npm install -g @opencode-ai/cli && opencode auth login`
+
+**OpenCode не авторизован**
+```text
+❌ OpenCode auth error: not authenticated
+```
+**Решение:** Выполните `opencode auth login` для авторизации.
 
 **Права доступа**
 ```

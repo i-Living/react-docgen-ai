@@ -14,6 +14,8 @@ export interface CliOptions {
   out: string;
   /** Нужно ли аннотировать код комментариями */
   annotate: boolean;
+  /** Нужно ли аннотировать код in-place */
+  annotateInplace?: boolean;
   /** Нужно ли генерировать документацию */
   docs: boolean;
   /** Нужно ли генерировать граф компонентов */
@@ -28,7 +30,20 @@ export interface CliOptions {
   opencode?: boolean;
   /** Модель для OpenCode (формат "provider/model") */
   opencodeModel?: string;
+  /** Количество параллельных запросов к LLM (по умолчанию 4) */
+  parallel?: number;
+  /** Директория с кастомными промптами */
+  promptDir?: string;
+  /** Режим сухого прогона (без вызова LLM и записи) */
+  dryRun?: boolean;
+  /** Формат вывода документации */
+  format?: OutputFormat;
+  /** Использовать streaming для HTTP провайдера */
+  stream?: boolean;
 }
+
+/** Формат вывода документации */
+export type OutputFormat = "markdown" | "json";
 
 /**
  * Интерфейс для информации о React компоненте, извлеченной из AST
@@ -129,4 +144,18 @@ export interface LlmApiOptions {
   maxTokens?: number;
   /** Температура генерации */
   temperature?: number;
+  /** Использовать streaming */
+  stream?: boolean;
+}
+
+/**
+ * Результат обработки одного файла в пайплайне
+ */
+export interface FileResult {
+  file: string;
+  success: boolean;
+  skipped?: boolean;
+  skipReason?: string;
+  error?: string;
+  outputPath?: string;
 }

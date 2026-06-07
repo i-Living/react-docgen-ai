@@ -7,16 +7,37 @@
 import fs from "fs";
 import path from "path";
 
+let _promptDirOverride: string | null = null;
+
+/**
+ * Устанавливает кастомную директорию промптов (из --prompt-dir).
+ */
+export function setPromptDirectory(dir: string): void {
+  _promptDirOverride = dir;
+}
+
+/**
+ * Сбрасывает кастомную директорию промптов.
+ */
+export function resetPromptDirectory(): void {
+  _promptDirOverride = null;
+}
+
 // Получаем базовую директорию для промптов
 const getPromptsDirectory = (): string => {
+  // 1. Если задана кастомная директория через --prompt-dir
+  if (_promptDirOverride && fs.existsSync(_promptDirOverride)) {
+    return _promptDirOverride;
+  }
+
   // Проверяем несколько возможных путей в порядке приоритета
   const possiblePaths = [
-    // 1. Относительно исходного кода (для разработки и тестов)
+    // 2. Относительно исходного кода (для разработки и тестов)
     path.join(process.cwd(), 'src', 'prompts'),
-    // 2. Относительно скомпилированного кода (для production)
+    // 3. Относительно скомпилированного кода (для production)
     path.join(process.cwd(), 'dist', 'prompts')
   ];
-  
+
   // Дополнительно проверяем пути относительно текущего модуля (если доступно)
   try {
     const currentDir = __dirname;

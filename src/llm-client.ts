@@ -4,7 +4,6 @@
  * @version 1.0.0
  */
 
-import axios from "axios";
 import { LlmApiOptions } from "./types.js";
 
 /**
@@ -66,13 +65,6 @@ function cleanLLMResponse(response: string): string {
 }
 
 /**
- * Выполняет запрос к LLM API
- * @param api - URL API эндпоинта
- * @param prompt - Промпт для отправки в LLM
- * @param options - Дополнительные опции API
- * @returns Promise с текстовым ответом от LLM
- */
-/**
  * Определяет, использовать ли chat completions формат по URL
  */
 function isChatApi(api: string): boolean {
@@ -103,7 +95,7 @@ export async function callLLM(
   // Формируем payload для отправки в API
   const requestPayload = useChat
     ? {
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user' as const, content: prompt }],
         max_tokens: maxTokens,
         temperature
       }
@@ -114,13 +106,23 @@ export async function callLLM(
       };
 
   try {
-    // Выполняем POST запрос к LLM API
-    const response = await axios.post(api, requestPayload);
+    // Выполняем POST запрос к LLM API через fetch
+    const response = await fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestPayload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data: any = await response.json();
     
     // Извлекаем текст ответа из различных возможных форматов API
     let result = useChat
-      ? extractChatResponse(response.data)
-      : response.data.text || response.data.choices?.[0]?.text || '';
+      ? extractChatResponse(data)
+      : data.text || data.choices?.[0]?.text || '';
     
     // Очищаем ответ от артефактов каналов и метаданных
     result = cleanLLMResponse(result);

@@ -7,12 +7,20 @@
 import { generateGraph } from '../src/generate-graph.js';
 import { getFiles, readFile } from '../src/file-utils.js';
 import { buildComponentGraph, graphToDot, graphToMarkdown } from '../src/ast/component-graph.js';
-import fs from 'fs-extra';
+import fs from 'fs';
 
 jest.mock('../src/file-utils.js');
 jest.mock('../src/ast/component-graph.js');
-jest.mock('fs-extra');
-jest.mock('globby');
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(true),
+  statSync: jest.fn().mockReturnValue({ isFile: () => true, isDirectory: () => false }),
+  readFileSync: jest.fn().mockReturnValue(''),
+  writeFileSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  rmSync: jest.fn(),
+  cpSync: jest.fn(),
+  readdirSync: jest.fn().mockReturnValue([]),
+}));
 
 describe('Generate Graph', () => {
   const mockGetFiles = getFiles as jest.MockedFunction<typeof getFiles>;
@@ -96,7 +104,7 @@ describe('Generate Graph', () => {
       expect(mockGraphToMarkdown).toHaveBeenCalledWith(componentGraph);
       
       // Check that files are written
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith('./test-out/graph', { recursive: true });
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
         './test-out/graph/components.dot',
         dotContent
@@ -199,7 +207,7 @@ describe('Generate Graph', () => {
       expect(mockGraphToDot).toHaveBeenCalledWith({});
       expect(mockGraphToMarkdown).toHaveBeenCalledWith({});
       
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith('./test-out/graph', { recursive: true });
       expect(mockFs.writeFileSync).toHaveBeenCalledTimes(2);
     });
 
@@ -264,11 +272,11 @@ describe('Generate Graph', () => {
       mockBuildComponentGraph.mockReturnValue({});
       mockGraphToDot.mockReturnValue('digraph { }');
       mockGraphToMarkdown.mockReturnValue('# Component Tree');
-      mockFs.ensureDirSync.mockReturnValue(undefined); // Directory creation succeeds
+      mockFs.mkdirSync.mockReturnValue(undefined); // Directory creation succeeds
 
       await generateGraph(mockOptions);
 
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./test-out/graph');
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith('./test-out/graph', { recursive: true });
     });
 
     it('should handle nested component hierarchy', async () => {
@@ -397,7 +405,7 @@ describe('Generate Graph', () => {
 
       await generateGraph(customOptions);
 
-      expect(mockFs.ensureDirSync).toHaveBeenCalledWith('./custom-output/graph');
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith('./custom-output/graph', { recursive: true });
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
         './custom-output/graph/components.dot',
         'digraph { }'

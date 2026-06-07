@@ -6,7 +6,7 @@
 
 import { getFiles, readFile } from "./file-utils.js";
 import { buildComponentGraph, graphToDot, graphToMarkdown } from "./ast/component-graph.js";
-import fs from "fs-extra";
+import fs from "fs";
 import { CliOptions } from "./types.js";
 
 /**
@@ -34,7 +34,7 @@ export async function generateGraph(opts: CliOptions): Promise<void> {
 
     // Создаем директорию для выходных файлов
     const outDir: string = opts.out + "/graph";
-    fs.ensureDirSync(outDir);
+    fs.mkdirSync(outDir, { recursive: true });
 
     // Записываем DOT файл для Graphviz
     fs.writeFileSync(outDir + "/components.dot", dot);

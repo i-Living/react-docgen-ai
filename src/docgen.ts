@@ -5,7 +5,7 @@
  */
 
 import { getFiles, readFile, writeOutput, outputFileExists, getDocFiles, deleteFile } from "./file-utils.js";
-import { callLLM } from "./llm-client.js";
+import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getDocumentationPrompt } from "./prompt-loader.js";
 import path from "path";
@@ -87,7 +87,7 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
       const prompt = getDocumentationPrompt(astInfo, code);
 
       // Запрашиваем у LLM генерацию подробной документации
-      let doc: string = await callLLM(opts.api, prompt);
+      let doc: string = await callLlm(opts, prompt);
       
       // Валидация ответа - проверяем на неправильные ответы
       const isValidDoc = isValidDocumentation(doc);
@@ -97,7 +97,7 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
         // Создаем более строгий промпт
         const strictPrompt = prompt + "\n\nКРИТИЧЕСКИ ВАЖНО: Создай полную Markdown документацию. НЕ пиши сообщения об ошибках. НЕ проси дополнительную информацию. ИСПОЛЬЗУЙ данные из AST!";
         
-        doc = await callLLM(opts.api, strictPrompt);
+        doc = await callLlm(opts, strictPrompt);
       }
 
       // Записываем документацию в выходной файл

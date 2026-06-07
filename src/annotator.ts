@@ -5,7 +5,7 @@
  */
 
 import { getFiles, readFile, writeOutput, writeInPlace, hasFileoverview, removeComments, hasCodeChanges } from "./file-utils.js";
-import { callLLM } from "./llm-client.js";
+import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getAnnotationPrompt } from "./prompt-loader.js";
 import { CliOptions } from "./types.js";
@@ -82,7 +82,7 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
       while (attempts < 5) {
         try {
           // Отправляем запрос к LLM и получаем аннотированный код
-          const result: string = await callLLM(opts.api, currentPrompt);
+          const result: string = await callLlm(opts, currentPrompt);
           
           // Проверяем, изменился ли код (игнорируя комментарии)
           if (!hasCodeChanges(code, result)) {

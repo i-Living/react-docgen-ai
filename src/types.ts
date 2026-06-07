@@ -24,6 +24,10 @@ export interface CliOptions {
   api: string;
   /** Принудительная обработка файлов с @fileoverview */
   force?: boolean;
+  /** Использовать OpenCode SDK вместо HTTP */
+  opencode?: boolean;
+  /** Модель для OpenCode (формат "provider/model") */
+  opencodeModel?: string;
 }
 
 /**

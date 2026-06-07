@@ -33,6 +33,8 @@ program
   .option("--graph", "Генерировать граф зависимостей компонентов (DOT и Markdown форматы)")
   .option("-e, --extensions <exts>", "Расширения файлов для обработки", "js,jsx,ts,tsx")
   .option("--api <url>", "URL API для локального LLM сервера", "http://localhost:8000/completions")
+  .option("--opencode", "Использовать OpenCode SDK вместо HTTP запросов к LLM", false)
+  .option("--opencode-model <model>", "Модель для OpenCode (формат: provider/model, например openrouter/anthropic/claude-sonnet-4)", "")
   .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", "4096")
   .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", "0.1")
   .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false);

@@ -211,7 +211,10 @@ describe('Docgen', () => {
       const llmError = new Error('LLM API Error');
       mockCallLLM.mockRejectedValue(llmError);
 
-      await expect(generateDocs(mockOptions)).rejects.toThrow('LLM API Error');
+      // Ошибка обрабатывается внутри пайплайна — функция не выбрасывает,
+      // но файл помечается как неудачный
+      await expect(generateDocs(mockOptions)).resolves.not.toThrow();
+      expect(mockCallLLM).toHaveBeenCalled();
     });
 
     it('should use custom API endpoint', async () => {
@@ -309,8 +312,8 @@ describe('Docgen', () => {
 
       await generateDocs(mockOptions);
 
-      expect(consoleSpy).toHaveBeenCalledWith('\n📚 Hybrid Docgen: 1 files...\n');
-      expect(consoleSpy).toHaveBeenCalledWith('\n✨ Hybrid documentation completed!');
+      expect(consoleSpy).toHaveBeenCalledWith('\n📘 Docgen (markdown): 1 files (concurrency: 4)');
+      expect(consoleSpy).toHaveBeenCalledWith('\n✨ Docgen (markdown) completed! ✅ 1 | ❌ 0 | 📁 1 total');
 
       consoleSpy.mockRestore();
     });

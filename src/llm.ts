@@ -25,7 +25,7 @@ function resolveProvider(opts: CliOptions): LlmProvider {
 /**
  * Отправляет промпт в LLM через выбранный провайдер.
  *
- * @param api - URL API (для HTTP провайдера) или модель (для OpenCode)
+ * @param opts - Опции CLI (содержат api URL, opencode модель и т.д.)
  * @param prompt - Текст промпта
  * @param options - Дополнительные опции LLM
  * @param provider - Провайдер (определяется из opts, если не указан явно)
@@ -39,15 +39,19 @@ export async function callLlm(
   const actualProvider = provider ?? resolveProvider(opts);
 
   if (actualProvider === "opencode") {
-    // OpenCode SDK: opts.api содержит имя модели
-    // (переопределяется через --api для обратной совместимости)
     const model = opts.opencodeModel || opts.api || undefined;
     return await callOpencode(prompt, model);
   }
 
-  // HTTP провайдер (существующее поведение)
-  if (options && Object.keys(options).length > 0) {
-    return await callLLM(opts.api, prompt, options);
+  // HTTP провайдер — передаём stream и другие опции
+  const llmOptions: LlmApiOptions = {};
+  if (options?.maxTokens != null) llmOptions.maxTokens = options.maxTokens;
+  if (options?.temperature != null) llmOptions.temperature = options.temperature;
+  if (options?.stream != null) llmOptions.stream = options.stream;
+  else if (opts.stream) llmOptions.stream = true;
+
+  if (llmOptions && Object.keys(llmOptions).length > 0) {
+    return await callLLM(opts.api, prompt, llmOptions);
   }
   return await callLLM(opts.api, prompt);
 }

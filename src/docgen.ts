@@ -1,5 +1,5 @@
 /**
- * @fileoverview Модуль для автоматической генерации Markdown документации React компонентов
+ * @fileoverview Модуль для автоматической генерации Markdown/JSON документации React компонентов
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -7,16 +7,24 @@
 import { getFiles, readFile, writeOutput, outputFileExists, getDocFiles, deleteFile } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
-import { getDocumentationPrompt } from "./prompt-loader.js";
+import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
 import path from "path";
-import { CliOptions } from "./types.js";
+import { CliOptions, OutputFormat } from "./types.js";
+import { processFilesConcurrent } from "./pipeline.js";
 
 /**
  * Проверяет, является ли ответ LLM валидной документацией
- * @param response - Ответ от LLM
- * @returns true если ответ является валидной документацией
  */
-function isValidDocumentation(response: string): boolean {
+function isValidDocumentation(response: string, format: OutputFormat): boolean {
+  if (format === "json") {
+    try {
+      const parsed = JSON.parse(response);
+      return parsed !== null && typeof parsed === "object";
+    } catch {
+      return false;
+    }
+  }
+
   const invalidPatterns = [
     'analysisNeed markdown sections',
     'No props, no state, no effects',
@@ -26,60 +34,113 @@ function isValidDocumentation(response: string): boolean {
     'no component found',
     'insufficient information'
   ];
-  
+
   const responseLower = response.toLowerCase();
-  
-  // Проверяем на наличие паттернов неправильного ответа
   for (const pattern of invalidPatterns) {
     if (responseLower.includes(pattern.toLowerCase())) {
       return false;
     }
   }
-  
-  // Проверяем, что ответ содержит структуру Markdown
+
   const hasMarkdownStructure = 
     response.includes('#') || 
     response.includes('##') ||
     response.includes('###') ||
     response.includes('**');
-    
-  // Проверяем минимальную длину
+
   const hasMinimumLength = response.trim().length > 50;
-  
+
   return hasMarkdownStructure && hasMinimumLength;
 }
 
 /**
- * Выполняет гибридную генерацию документации для React компонентов проекта
+ * Формирует строгий промпт для повторной попытки генерации документации
+ */
+function makeDocPromptStrict(originalPrompt: string): string {
+  return originalPrompt + "\n\nКРИТИЧЕСКИ ВАЖНО: Создай полную Markdown документацию. НЕ пиши сообщения об ошибках. НЕ проси дополнительную информацию. ИСПОЛЬЗУЙ данные из AST!";
+}
+
+/**
+ * Генерирует JSON-документацию из markdown-ответа LLM
+ */
+function convertMdToJson(md: string, fileName: string): string {
+  // Извлекаем заголовок из markdown
+  const titleMatch = md.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? titleMatch[1]!.trim() : fileName;
+
+  // Извлекаем секции
+  const sections: Record<string, string> = {};
+  const sectionRegex = /^##\s+(.+)$\n([\s\S]*?)(?=\n##\s|\n$)/gm;
+  let match;
+  while ((match = sectionRegex.exec(md)) !== null) {
+    sections[match[1]!.trim()] = match[2]!.trim();
+  }
+
+  // Общее описание (всё до первого ##)
+  const descMatch = md.match(/^#\s+.+$\n([\s\S]*?)(?=\n##\s|\n$)/m);
+  const description = descMatch ? descMatch[1]!.trim() : "";
+
+  const doc: Record<string, unknown> = {
+    title,
+    description,
+    sections,
+    raw: md,
+    generatedAt: new Date().toISOString(),
+  };
+
+  return JSON.stringify(doc, null, 2);
+}
+
+/**
+ * Выполняет параллельную генерацию документации для React компонентов
  * Комбинирует AST анализ с LLM для создания подробной документации
  * @param opts - Опции командной строки
  */
 export async function generateDocs(opts: CliOptions): Promise<void> {
   try {
-    // Получаем список файлов компонентов для документирования
+    // Применяем кастомную директорию промптов если указана
+    if (opts.promptDir) {
+      setPromptDirectory(opts.promptDir);
+    }
+
     const files: string[] = await getFiles(opts.src, opts.extensions);
     const outDir: string = opts.out + "/docs";
+    const format: OutputFormat = opts.format ?? "markdown";
 
-    // Информируем о начале процесса
-    console.log(`\n📚 Hybrid Docgen: ${files.length} files...\n`);
+    if (opts.dryRun) {
+      console.log(`\n🧪 [DRY RUN] Docgen (${format}): ${files.length} files`);
+      for (const file of files) {
+        const outFile = file.replace(/\.(js|jsx|ts|tsx)$/, format === "json" ? ".json" : ".md");
+        if (!opts.force && outputFileExists(outDir, outFile)) {
+          console.log(`  ⏭️ [SKIP] exists: ${outFile}`);
+        } else {
+          console.log(`  ✓ Would generate: ${outFile}`);
+        }
+      }
+      console.log(`\n🧪 Dry-run completed.`);
+
+      // В dry-run не удаляем orphaned docs
+      return;
+    }
 
     // Удаляем устаревшие файлы документации (для которых нет исходных файлов)
     await cleanupOrphanedDocs(outDir, files, opts.extensions);
 
-    // Обрабатываем каждый файл последовательно
-    for (const file of files) {
+    const label = `Docgen (${format})`;
+
+    await processFilesConcurrent(files, async (file, index, total) => {
       // Определяем путь для выходного файла документации
-      const outFile: string = file.replace(/\.(js|jsx|ts|tsx)$/, ".md");
-      
+      const ext = format === "json" ? ".json" : ".md";
+      const outFile: string = file.replace(/\.(js|jsx|ts|tsx)$/, ext);
+
       // Проверяем, существует ли уже файл документации
       if (!opts.force && outputFileExists(outDir, outFile)) {
-        console.log("⏭️ Skip (exists):", outFile);
-        continue;
+        return { file, success: true, skipped: true, skipReason: "exists" };
       }
-      
+
       // Читаем исходный код компонента
       const code: string = readFile(file);
-      
+
       // Извлекаем структурную информацию через AST анализ
       const astInfo = extractComponentInfo(code);
 
@@ -88,29 +149,24 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
 
       // Запрашиваем у LLM генерацию подробной документации
       let doc: string = await callLlm(opts, prompt);
-      
-      // Валидация ответа - проверяем на неправильные ответы
-      const isValidDoc = isValidDocumentation(doc);
-      if (!isValidDoc) {
-        console.log("⚠️ Получен неправильный ответ от LLM, повторная попытка с более строгим промптом...");
-        
-        // Создаем более строгий промпт
-        const strictPrompt = prompt + "\n\nКРИТИЧЕСКИ ВАЖНО: Создай полную Markdown документацию. НЕ пиши сообщения об ошибках. НЕ проси дополнительную информацию. ИСПОЛЬЗУЙ данные из AST!";
-        
+
+      // Валидация ответа — проверяем на неправильные ответы
+      if (!isValidDocumentation(doc, format)) {
+        const strictPrompt = makeDocPromptStrict(prompt);
         doc = await callLlm(opts, strictPrompt);
       }
 
+      // Для JSON-формата: конвертируем markdown → JSON
+      const outputContent = format === "json"
+        ? convertMdToJson(doc, path.basename(file))
+        : doc;
+
       // Записываем документацию в выходной файл
-      const outPath: string = writeOutput(outDir, outFile, doc);
+      const outPath: string = writeOutput(outDir, outFile, outputContent);
 
-      // Сообщаем о завершении обработки файла
-      console.log("✓ Doc:", outPath);
-    }
-
-    // Сообщение об успешном завершении процесса
-    console.log("\n✨ Hybrid documentation completed!");
+      return { file, success: true, outputPath: outPath };
+    }, opts, label);
   } catch (error) {
-    // Обработка ошибок с подробным логированием
     console.error("❌ Ошибка при генерации документации:", error);
     throw error;
   }
@@ -118,24 +174,25 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
 
 /**
  * Удаляет файлы документации, для которых нет соответствующих исходных файлов
- * @param docsDir - Директория с документацией
- * @param sourceFiles - Список исходных файлов
- * @param extensions - Расширения исходных файлов
  */
 async function cleanupOrphanedDocs(docsDir: string, sourceFiles: string[], extensions: string): Promise<void> {
   const docFiles = await getDocFiles(docsDir);
-  
+
   if (docFiles.length === 0) {
     return;
   }
 
-  // Создаем набор ожидаемых md файлов на основе исходных файлов
+  // Создаем набор ожидаемых md/json файлов на основе исходных файлов
   const expectedDocs = new Set<string>();
   for (const srcFile of sourceFiles) {
     const mdFile = srcFile.replace(/\.(js|jsx|ts|tsx)$/, ".md");
+    const jsonFile = srcFile.replace(/\.(js|jsx|ts|tsx)$/, ".json");
     const rel = path.relative(process.cwd(), mdFile);
-    const expectedPath = path.join(docsDir, rel);
-    expectedDocs.add(path.normalize(expectedPath));
+    const expectedPathMd = path.join(docsDir, rel);
+    expectedDocs.add(path.normalize(expectedPathMd));
+    const relJson = path.relative(process.cwd(), jsonFile);
+    const expectedPathJson = path.join(docsDir, relJson);
+    expectedDocs.add(path.normalize(expectedPathJson));
   }
 
   // Удаляем файлы документации, которых нет в ожидаемом наборе
@@ -143,7 +200,7 @@ async function cleanupOrphanedDocs(docsDir: string, sourceFiles: string[], exten
     const normalizedDocFile = path.normalize(docFile);
     if (!expectedDocs.has(normalizedDocFile)) {
       deleteFile(docFile);
-      console.log("🗑️ Deleted orphaned doc:", docFile);
+      console.log("  🗑️ Deleted orphaned doc:", docFile);
     }
   }
 }

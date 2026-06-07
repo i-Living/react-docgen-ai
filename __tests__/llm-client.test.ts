@@ -80,7 +80,8 @@ describe('LLM Client', () => {
           body: JSON.stringify({
             prompt: 'test prompt',
             max_tokens: 2048,
-            temperature: 0.5
+            temperature: 0.5,
+            stream: false
           })
         })
       );

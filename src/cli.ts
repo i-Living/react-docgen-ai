@@ -17,21 +17,16 @@ const DEFAULT_MAX_TOKENS = String(readEnvInt("LLM_MAX_TOKENS", 4096));
 const DEFAULT_TEMP       = String(readEnvFloat("LLM_TEMPERATURE", 0.1));
 const DEFAULT_OUT        = readEnv("DOCGEN_OUT", "./ai-output");
 const DEFAULT_EXTENSIONS = readEnv("DOCGEN_EXTENSIONS", "js,jsx,ts,tsx");
+const DEFAULT_PARALLEL   = String(readEnvInt("DOCGEN_PARALLEL", 4));
 
 // Инициализируем новый экземпляр командной строки
 const program = new Command();
 
-/**
- * Настраиваем базовую информацию о приложении
- */
 program
   .name("react-docgen-ai")
-  .description("Автоматическое документирование и аннотирование React кода с использованием локального LLM")
+  .description("Автоматическое документирование и аннотирование React кода с использованием LLM")
   .version("1.0.0");
 
-/**
- * Определяем доступные опции командной строки
- */
 program
   .requiredOption("-s, --src <path>", "Путь к исходной директории или отдельному файлу с React компонентами")
   .option("-o, --out <path>", "Выходная директория для результатов", DEFAULT_OUT)
@@ -45,14 +40,15 @@ program
   .option("--opencode-model <model>", "Модель для OpenCode (формат: provider/model, например openrouter/anthropic/claude-sonnet-4)", readEnv("OPENCODE_DEFAULT_MODEL", ""))
   .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
   .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
-  .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false);
+  .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false)
+  // Новые опции
+  .option("--parallel <number>", "Количество параллельных запросов к LLM", DEFAULT_PARALLEL)
+  .option("--prompt-dir <path>", "Директория с кастомными файлами промптов")
+  .option("--dry-run", "Режим сухого прогона (без вызова LLM и записи)", false)
+  .option("--format <format>", "Формат вывода документации (markdown|json)", "markdown")
+  .option("--stream", "Использовать streaming для HTTP провайдера", false);
 
-/**
- * Главный обработчик команд
- * Определяет какие операции выполнить на основе переданных опций
- * @param opts - Парсированные опции командной строки
- */
-program.action(async (opts: CliOptions & { maxTokens?: string; temperature?: string; annotateInplace?: boolean }) => {
+program.action(async (opts: Record<string, any>) => {
   try {
     // Проверяем, что выбрана хотя бы одна операция
     if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph) {
@@ -66,68 +62,71 @@ program.action(async (opts: CliOptions & { maxTokens?: string; temperature?: str
       process.exit(1);
     }
 
+    // Нормализуем типы (Commander возвращает строки)
+    const normalized: CliOptions = {
+      src: opts.src,
+      out: opts.out,
+      annotate: opts.annotate ?? false,
+      annotateInplace: opts.annotateInplace ?? false,
+      docs: opts.docs ?? false,
+      graph: opts.graph ?? false,
+      extensions: opts.extensions,
+      api: opts.api,
+      force: opts.force ?? false,
+      opencode: opts.opencode ?? false,
+      opencodeModel: opts.opencodeModel ?? "",
+      parallel: parseInt(opts.parallel, 10) || 4,
+      promptDir: opts.promptDir || undefined,
+      dryRun: opts.dryRun ?? false,
+      format: opts.format === "json" ? "json" : "markdown",
+      stream: opts.stream ?? false,
+    };
+
+    if (opts.dryRun) {
+      console.log("\n🧪 ===== DRY RUN MODE =====");
+      console.log("  Files will be scanned but no LLM calls or writes will be made.\n");
+    }
+
     // Выполняем аннотирование кода если опция указана
     if (opts.annotate) {
-      console.log("🚀 Запуск аннотирования кода...");
-      await annotateProject(opts);
+      await annotateProject(normalized);
     }
 
-    // Выполняем аннотирование in-place если опция указана
     if (opts.annotateInplace) {
-      console.log("🚀 Запуск аннотирования кода in-place...");
-      await annotateInPlace(opts);
+      await annotateInPlace(normalized);
     }
 
-    // Генерируем документацию если опция указана
     if (opts.docs) {
-      console.log("📚 Запуск генерации документации...");
-      await generateDocs(opts);
+      await generateDocs(normalized);
     }
 
-    // Генерируем граф компонентов если опция указана
     if (opts.graph) {
-      console.log("🕸️ Запуск генерации графа компонентов...");
-      await generateGraph(opts);
+      await generateGraph(normalized);
     }
 
-    // Сообщение об успешном завершении всех операций
-    console.log("\n🎉 Все операции успешно завершены!");
-    if (opts.annotate) {
-      console.log(`📁 Результаты сохранены в: ${opts.out}`);
+    if (!opts.dryRun) {
+      console.log("\n🎉 Все операции успешно завершены!");
     }
-
   } catch (error) {
-    // Обработка критических ошибок
     console.error("❌ Критическая ошибка:", error);
-    
-    // Предоставляем подсказки по устранению проблем
+
     if (error instanceof Error) {
       if (error.message.includes("EACCES")) {
-        console.log("\n💡 Возможно, недостаточно прав доступа. Попробуйте:");
-        console.log("  - Проверить права доступа к директориям");
-        console.log("  - Запустить с правами администратора");
+        console.log("\n💡 Возможно, недостаточно прав доступа.");
       } else if (error.message.includes("ENOENT")) {
-        console.log("\n💡 Возможно, указан несуществующий путь. Проверьте:");
-        console.log("  - Существование исходной директории или файла");
-        console.log("  - Корректность пути к LLM API");
+        console.log("\n💡 Возможно, указан несуществующий путь.");
       }
     }
-    
+
     process.exit(1);
   }
 });
 
-/**
- * Обработка неизвестных команд или неправильного использования
- */
 program.on("command:*", () => {
   console.error("❌ Неизвестная команда. Используйте --help для получения справки.");
   process.exit(1);
 });
 
-/**
- * Обработка сигналов завершения для корректного закрытия
- */
 process.on("SIGINT", () => {
   console.log("\n\n⏹️ Получен сигнал прерывания. Завершение работы...");
   process.exit(0);
@@ -138,5 +137,4 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-// Парсим аргументы командной строки и запускаем программу
 program.parse(process.argv);

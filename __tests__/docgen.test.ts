@@ -9,14 +9,22 @@ import { getFiles, readFile, getDocFiles, writeOutput } from '../src/file-utils.
 import { callLLM } from '../src/llm-client.js';
 import { extractComponentInfo } from '../src/ast/ast-extractor.js';
 import { getDocumentationPrompt } from '../src/prompt-loader.js';
-import fs from 'fs-extra';
+import fs from 'fs';
 
 jest.mock('../src/file-utils.js');
 jest.mock('../src/llm-client.js');
 jest.mock('../src/ast/ast-extractor.js');
 jest.mock('../src/prompt-loader.js');
-jest.mock('fs-extra');
-jest.mock('globby');
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(true),
+  statSync: jest.fn().mockReturnValue({ isFile: () => true, isDirectory: () => false }),
+  readFileSync: jest.fn().mockReturnValue(''),
+  writeFileSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  rmSync: jest.fn(),
+  cpSync: jest.fn(),
+  readdirSync: jest.fn().mockReturnValue([]),
+}));
 
 describe('Docgen', () => {
   const mockGetFiles = getFiles as jest.MockedFunction<typeof getFiles>;

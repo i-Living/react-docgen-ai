@@ -14,23 +14,23 @@
 ## 🚀 Установка и настройка
 
 ### Требования
-- Node.js 16+
-- npm или yarn
+- [Bun](https://bun.sh) >= 1.3
+- Node.js 16+ (для runtime)
 - Локальный LLM сервер (например, запущенный на localhost:8000)
 
 ### Установка зависимостей
 ```bash
-npm install
+bun install
 ```
 
 ### Компиляция TypeScript
 ```bash
-npm run build
+bun run build
 ```
 
 ### Разработка с автопересборкой
 ```bash
-npm run dev
+bun run dev
 ```
 
 ## 🎯 Примеры использования
@@ -154,10 +154,10 @@ ai-output/
 ## 🔧 Сборка и разработка
 
 ### Доступные скрипты
-- `npm run build` - компиляция TypeScript в JavaScript
-- `npm run dev` - разработка с автопересборкой
-- `npm run start` - запуск скомпилированного кода
-- `npm run clean` - очистка директории dist
+- `bun run build` - компиляция TypeScript в JavaScript
+- `bun run dev` - разработка с автопересборкой
+- `bun run start` - запуск скомпилированного кода
+- `bun run clean` - очистка директории dist
 
 ### Структура проекта
 ```
@@ -235,7 +235,7 @@ dot -Tpdf components.dot -o components.pdf
 ```
 ❌ Cannot find module 'globby'
 ```
-**Решение:** Установите зависимости командой `npm install`.
+**Решение:** Установите зависимости командой `bun install`.
 
 **Права доступа**
 ```

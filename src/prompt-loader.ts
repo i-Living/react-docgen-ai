@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import fs from "fs-extra";
+import fs from "fs";
 import path from "path";
 
 // Получаем базовую директорию для промптов

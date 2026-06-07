@@ -4,9 +4,28 @@
  * @version 1.0.0
  */
 
-import { globby } from "globby";
-import fs from "fs-extra";
+import fs from "fs";
 import path from "path";
+
+/**
+ * Рекурсивно находит файлы с указанными расширениями в директории
+ */
+function findFilesRecursive(dir: string, extensions: string[]): string[] {
+  const results: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...findFilesRecursive(fullPath, extensions));
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).substring(1).toLowerCase();
+      if (extensions.includes(ext)) {
+        results.push(fullPath);
+      }
+    }
+  }
+  return results;
+}
 
 /**
  * Получает список файлов для обработки
@@ -29,7 +48,7 @@ export async function getFiles(src: string, extensions: string): Promise<string[
     return validateAndReturnSingleFile(src, extensions);
   }
   
-  // Если это директория, используем существующую логику с globby
+  // Если это директория, используем рекурсивный поиск файлов
   return getFilesFromDirectory(src, extensions);
 }
 
@@ -61,14 +80,8 @@ function validateAndReturnSingleFile(filePath: string, extensions: string): stri
  * @returns Promise с массивом путей к файлам
  */
 async function getFilesFromDirectory(src: string, extensions: string): Promise<string[]> {
-  // Разбиваем строку расширений на массив, убирая лишние пробелы
   const exts: string[] = extensions.split(",").map((e: string) => e.trim());
-  
-  // Создаем паттерны для поиска файлов с каждым расширением
-  const patterns: string[] = exts.map((ext: string) => `${src}/**/*.${ext}`);
-  
-  // Используем globby для поиска файлов по паттернам
-  return globby(patterns);
+  return findFilesRecursive(src, exts);
 }
 
 /**
@@ -96,7 +109,7 @@ export function writeOutput(baseOut: string, srcFile: string, content: string): 
   const outPath: string = path.join(baseOut, rel);
   
   // Создаем директории если они не существуют
-  fs.ensureDirSync(path.dirname(outPath));
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   
   // Записываем контент в файл
   fs.writeFileSync(outPath, content);
@@ -137,30 +150,36 @@ export function removeComments(code: string): string {
   let result = code;
   
   // Защищаем строки в одинарных кавычках
-  result = result.replace(/'([^'\\]|\\.)*'/g, (match) => {
+  result = result.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
   // Защищаем строки в двойных кавычках
-  result = result.replace(/"([^"\\]|\\.)*"/g, (match) => {
+  result = result.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
   // Защищаем строки в обратных кавычках (template literals)
-  result = result.replace(/`([^`\\]|\\.)*`/g, (match) => {
+  result = result.replace(/`[^`\\]*(?:\\.[^`\\]*)*`/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
-  // Удаляем многострочные комментарии (/* comment */) 
-  result = result.replace(/\/\*[\s\S]*?\*\//g, '');
-  
+  // Защищаем регулярные выражения (RegExp literals) от ложного удаления
+  // Не захватываем // как начало regexp, т.к. нужен хотя бы 1 символ между //
+  result = result.replace(/\/(?!\*)(?:\[[^\]]*\]|[^\/\\\n]|\\.)+\/[gimsuy]*/g, (match) => {
+    strings[stringIndex] = match;
+    return `__REGEXP_${stringIndex++}__`;
+  });
 
-  
+  // Удаляем многострочные комментарии (/* comment */ и /** JSDoc */)
+  result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+
   // Удаляем однострочные комментарии (// comment) 
-  result = result.replace(/(^|\s)\/\/.*$/gm, '$1');
+  // Не удаляем часть после // если это часть URL или протокола
+  result = result.replace(/(?:^|[ \t])\/\/.*$/gm, '');
   
   // Восстанавливаем все защищенные строки и регулярные выражения
   result = result.replace(/__(STRING|REGEXP)_(\d+)__/g, (match, type, index) => {
@@ -222,7 +241,7 @@ export async function getDocFiles(docsDir: string): Promise<string[]> {
   if (!fs.existsSync(docsDir)) {
     return [];
   }
-  return globby(`${docsDir}/**/*.md`);
+  return findFilesRecursive(docsDir, ['md']);
 }
 
 /**
@@ -230,5 +249,5 @@ export async function getDocFiles(docsDir: string): Promise<string[]> {
  * @param filePath - Путь к файлу для удаления
  */
 export function deleteFile(filePath: string): void {
-  fs.removeSync(filePath);
+  fs.rmSync(filePath, { recursive: true, force: true });
 }

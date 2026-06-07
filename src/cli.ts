@@ -8,6 +8,7 @@ import { Command } from "commander";
 import { annotateProject, annotateInPlace } from "./annotator.js";
 import { generateDocs } from "./docgen.js";
 import { generateGraph } from "./generate-graph.js";
+import { generateWiki } from "./wiki-generator.js";
 import { CliOptions } from "./types.js";
 import { readEnv, readEnvInt, readEnvFloat } from "./env.js";
 
@@ -46,7 +47,8 @@ program
   .option("--prompt-dir <path>", "Директория с кастомными файлами промптов")
   .option("--dry-run", "Режим сухого прогона (без вызова LLM и записи)", false)
   .option("--format <format>", "Формат вывода документации (markdown|json)", "markdown")
-  .option("--stream", "Использовать streaming для HTTP провайдера", false);
+  .option("--stream", "Использовать streaming для HTTP провайдера", false)
+  .option("--wiki <path>", "Генерировать LLM Wiki (Obsidian-совместимая документация) в указанную директорию");
 
 program.action(async (opts: Record<string, any>) => {
   try {
@@ -80,6 +82,7 @@ program.action(async (opts: Record<string, any>) => {
       dryRun: opts.dryRun ?? false,
       format: opts.format === "json" ? "json" : "markdown",
       stream: opts.stream ?? false,
+      wiki: opts.wiki || undefined,
     };
 
     if (opts.dryRun) {
@@ -102,6 +105,10 @@ program.action(async (opts: Record<string, any>) => {
 
     if (opts.graph) {
       await generateGraph(normalized);
+    }
+
+    if (opts.wiki) {
+      await generateWiki(normalized, opts.wiki);
     }
 
     if (!opts.dryRun) {

@@ -485,8 +485,22 @@ function updateAgentsMd(wikiDir: string): void {
   // Build relative path from cwd to wiki
   const relWiki = path.relative(cwd, wikiDir).replace(/\\/g, "/") || ".";
 
-  const entryLine = `- Wiki: \`${relWiki}\` — auto-generated component documentation`;
-  const block = `${WIKI_MARKER_START}\n${entryLine}\n${WIKI_MARKER_END}`;
+  const block = `${WIKI_MARKER_START}
+## Wiki Documentation
+
+The project has an auto-generated [LLM Wiki](${relWiki}/) with per-component documentation.
+
+**For the agent:**
+
+1. When working on a component, first check \`${relWiki}/entities/\` for its documentation page
+2. When you add new props, behavior, or components — update or regenerate the wiki
+3. To regenerate: \`npx react-docgen-ai --src ./src --wiki\`
+
+Key files:
+- \`${relWiki}/index.md\` — component catalog
+- \`${relWiki}/entities/\` — per-component pages
+- \`${relWiki}/log.md\` — change history
+${WIKI_MARKER_END}`;
 
   if (targetFile) {
     let content = fs.readFileSync(targetFile, "utf-8");

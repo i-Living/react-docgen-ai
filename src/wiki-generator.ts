@@ -420,6 +420,11 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   // === Step 7: Write log.md ===
   updateLog(wikiDir, createdPages, updatedPages, archivedPages);
 
+  // === Step 8: Sync AGENTS.md / CLAUDE.md project root file ===
+  if (!opts.dryRun) {
+    updateAgentsMd(wikiDir);
+  }
+
   // === Summary ===
   if (opts.verbose) {
     console.log(`\n✨ Wiki generated in ${wikiDir}`);
@@ -440,5 +445,68 @@ function getFileDate(filePath: string, field: "created" | "updated"): string {
     return match?.[1] ?? today();
   } catch {
     return today();
+  }
+}
+
+// ── AGENTS.md / CLAUDE.md sync ──────────────────────────────────────────────
+
+/** Candidate filenames in priority order */
+const AGENT_FILES = ["AGENTS.md", "CLAUDE.md", "agent.md"];
+
+/** Start marker — everything between this and wiki-end is managed by the tool */
+const WIKI_MARKER_START = "<!-- wiki-start -->";
+/** End marker */
+const WIKI_MARKER_END = "<!-- wiki-end -->";
+
+/**
+ * Updates (or creates) a reference to the wiki in the project root agent file.
+ *
+ * Looks for AGENTS.md, CLAUDE.md, or agent.md (in that order).
+ * If the file exists and contains the wiki markers — replaces the block in-place.
+ * If the file exists but no markers — appends the block at the end.
+ * If no agent file exists — creates AGENTS.md with the block.
+ *
+ * The block between markers is owned by the tool and can be safely replaced
+ * on every run without duplicating or breaking user content.
+ */
+function updateAgentsMd(wikiDir: string): void {
+  const cwd = process.cwd();
+
+  // Find which agent file to use
+  let targetFile: string | null = null;
+  for (const name of AGENT_FILES) {
+    const fp = path.join(cwd, name);
+    if (fs.existsSync(fp)) {
+      targetFile = fp;
+      break;
+    }
+  }
+
+  // Build relative path from cwd to wiki
+  const relWiki = path.relative(cwd, wikiDir).replace(/\\/g, "/") || ".";
+
+  const entryLine = `- Wiki: \`${relWiki}\` — auto-generated component documentation`;
+  const block = `${WIKI_MARKER_START}\n${entryLine}\n${WIKI_MARKER_END}`;
+
+  if (targetFile) {
+    let content = fs.readFileSync(targetFile, "utf-8");
+    const startIdx = content.indexOf(WIKI_MARKER_START);
+    const endIdx = content.indexOf(WIKI_MARKER_END);
+
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      // Replace existing block
+      const before = content.slice(0, startIdx);
+      const after = content.slice(endIdx + WIKI_MARKER_END.length);
+      content = before + block + after;
+    } else {
+      // Append at end (with blank line separator)
+      content = content.trimEnd() + "\n\n" + block + "\n";
+    }
+    fs.writeFileSync(targetFile, content, "utf-8");
+  } else {
+    // Create AGENTS.md
+    const newPath = path.join(cwd, AGENT_FILES[0]!);
+    const content = `# Agent Instructions\n\n${block}\n`;
+    fs.writeFileSync(newPath, content, "utf-8");
   }
 }

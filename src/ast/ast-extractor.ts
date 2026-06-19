@@ -49,6 +49,49 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
+    // Check named exports — only set exportsComponent when the exported
+    // declaration looks like a component (name starts with uppercase).
+    // This prevents utility functions (export function helper()) from
+    // being included in the component graph.
+    ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
+      // Has a declaration (export function / export const / export class)
+      if (path.node.declaration) {
+        // export function Button(...)
+        if (t.isFunctionDeclaration(path.node.declaration) &&
+            path.node.declaration.id &&
+            path.node.declaration.id.name.charAt(0) === path.node.declaration.id.name.charAt(0).toUpperCase()) {
+          info.exportsComponent = true;
+        }
+        // export const Button = ...
+        if (t.isVariableDeclaration(path.node.declaration)) {
+          for (const decl of path.node.declaration.declarations) {
+            if (t.isIdentifier(decl.id) && decl.id.name.charAt(0) === decl.id.name.charAt(0).toUpperCase()) {
+              info.exportsComponent = true;
+            }
+          }
+        }
+        // export class Button ...
+        if (t.isClassDeclaration(path.node.declaration) &&
+            path.node.declaration.id &&
+            path.node.declaration.id.name.charAt(0) === path.node.declaration.id.name.charAt(0).toUpperCase()) {
+          info.exportsComponent = true;
+        }
+      }
+      // Re-exports (export { Button }) — only for LOCAL specifiers (no source).
+      // Skip barrel files (export { X } from "./module") — they have source.
+      if (!path.node.source && path.node.specifiers && path.node.specifiers.length > 0) {
+        for (const spec of path.node.specifiers) {
+          if (t.isExportSpecifier(spec) && t.isIdentifier(spec.exported)) {
+            const name = spec.exported.name;
+            if (name.charAt(0) === name.charAt(0).toUpperCase()) {
+              info.exportsComponent = true;
+              if (!info.name) info.name = name;
+            }
+          }
+        }
+      }
+    },
+
     // Extract function-component name
     FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
       if (path.node.id) {

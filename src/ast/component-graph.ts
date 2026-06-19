@@ -75,7 +75,7 @@ export function graphToDot(graph: ComponentGraph): string {
  */
 export function graphToMarkdown(graph: ComponentGraph): string {
   let md: string = "# Component Tree\n\n";
-  md += "Иерархия React компонентов проекта.\n\n";
+  md += "React Component Hierarchy.\n\n";
 
   // Обрабатываем каждый узел графа
   for (const [name, data] of Object.entries(graph)) {
@@ -87,9 +87,9 @@ export function graphToMarkdown(graph: ComponentGraph): string {
 
     // Дочерние компоненты
     if (data.children.length === 0) {
-      md += "**Дочерние компоненты:** ➡️ Нет\n\n";
+      md += "**Children:** ➡️ None\n\n";
     } else {
-      md += "**Дочерние компоненты:**\n";
+      md += "**Children:**\n";
       for (const child of data.children) {
         md += `- ${child}\n`;
       }

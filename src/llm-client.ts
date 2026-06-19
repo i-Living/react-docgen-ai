@@ -129,12 +129,12 @@ function isChatApi(api: string): boolean {
 
 /**
  * Извлекает текст ответа из chat completions формата.
- * Падает на reasoning_content если content пустой (GLM, DeepSeek).
+ * Не использует reasoning_content — это внутренние рассуждения модели,
+ * не предназначенные для вывода.
  */
 function extractChatResponse(data: any): string {
   const msg = data.choices?.[0]?.message;
   if (msg?.content) return msg.content;
-  if (msg?.reasoning_content) return msg.reasoning_content;
   return data.choices?.[0]?.text || data.text || '';
 }
 
@@ -225,6 +225,11 @@ export async function callLLM(
   // Добавляем модель, если указана
   if (model) {
     requestPayload["model"] = model;
+  }
+
+  // Отключаем reasoning для thinking-моделей (DeepSeek, GLM) через OpenCode Go relay
+  if (api.includes("opencode.ai")) {
+    requestPayload["thinking"] = { type: "disabled" };
   }
 
   return withRetry(async () => {

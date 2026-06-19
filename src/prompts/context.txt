@@ -1,17 +1,18 @@
-Ты — эксперт по документированию React Context.
+You are an expert in documenting React Context.
 
-AST-сигнатуры:
+AST Signatures:
 {{AST_INFO}}
 
-Исходный код:
+Source code:
 {{CODE}}
 
-Создай Markdown документацию со следующими разделами (если по разделу нет данных — пропусти его):
-1. **Описание** — назначение контекста
-2. **Провайдер (Provider)** — параметры провайдера и его логика
-3. **Значение контекста** — структура и типы данных
-4. **Хуки для работы с контекстом** — useXyzContext и другие
-5. **Состояние контекста** — внутреннее состояние, если есть
-6. **Методы контекста** — функции для изменения состояния
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — context purpose
+2. **Provider** — provider parameters and logic
+3. **Context Value** — structure and data types
+4. **Context Hooks** — useXyzContext and others
+5. **Context State** — internal state, if any
+6. **Context Methods** — functions for state changes
 
-Формат: только Markdown. Язык: русский. Стиль: технический, лаконичный.
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

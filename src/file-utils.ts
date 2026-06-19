@@ -68,7 +68,7 @@ function validateAndReturnSingleFile(filePath: string, extensions: string): stri
   
   // Проверяем, входит ли расширение файла в список допустимых
   if (!exts.includes(fileExt)) {
-    throw new Error(`Расширение файла '.${fileExt}' не входит в список допустимых: ${extensions}`);
+    throw new Error(`File extension '.${fileExt}' is not in allowed list: ${extensions}`);
   }
   
   return [filePath];

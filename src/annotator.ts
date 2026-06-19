@@ -138,7 +138,7 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
       return { file, success: true, outputPath: file };
     }, opts, modeLabel);
   } catch (error) {
-    console.error("❌ Ошибка при аннотировании:", error);
+    console.error("❌ Error during annotation:", error);
     throw error;
   }
 }

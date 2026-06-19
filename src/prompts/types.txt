@@ -1,16 +1,17 @@
-Ты — эксперт по документированию TypeScript типов и интерфейсов.
+You are an expert in documenting TypeScript types and interfaces.
 
-AST-сигнатуры:
+AST Signatures:
 {{AST_INFO}}
 
-Исходный код:
+Source code:
 {{CODE}}
 
-Создай Markdown документацию со следующими разделами (если по разделу нет данных — пропусти его):
-1. **Описание** — назначение типа/интерфейса
-2. **Структура** — каждое свойство с типом и описанием
-3. **Наследование** — extends, implements отношения
-4. **Дженерики** — параметры дженериков и их ограничения
-5. **Связанные типы** — связанные интерфейсы или типы
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — type/interface purpose
+2. **Structure** — each property with type and description
+3. **Inheritance** — extends, implements relationships
+4. **Generics** — generic parameters and constraints
+5. **Related Types** — related interfaces or types
 
-Формат: только Markdown. Язык: русский. Стиль: технический, лаконичный.
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

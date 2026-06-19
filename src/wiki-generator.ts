@@ -96,14 +96,14 @@ function buildWikiContent(
   // Секция связей
   const links: string[] = [];
   if (parentNames.length > 0) {
-    links.push("## Используется в\n");
+    links.push("## Used in\n");
     for (const p of parentNames) {
       links.push(`- [[${p}]]`);
     }
     links.push("");
   }
   if (children.length > 0) {
-    links.push("## Использует компоненты\n");
+    links.push("## Uses\n");
     for (const c of children) {
       links.push(`- [[${c}]]`);
     }
@@ -114,7 +114,7 @@ function buildWikiContent(
   // и заменяем на относительный путь к исходнику
   const body = docMd.replace(/^#\s+.+$/m, "").trim();
 
-  return `${header}\n\n# ${componentName}\n\n> Исходник: \`${fm.source}\`\n\n${links.join("\n")}\n${body}\n`;
+  return `${header}\n\n# ${componentName}\n\n> Source: \`${fm.source}\`\n\n${links.join("\n")}\n${body}\n`;
 }
 
 /**
@@ -186,7 +186,7 @@ function buildIndex(
 ): string {
   const lines = [
     "# Wiki Index\n",
-    "> Каталог React компонентов проекта.",
+    "> Project Component Catalog.",
     "> Last updated: " + today(),
     `> Total pages: ${pages.length}\n`,
     "## Entities\n",
@@ -214,13 +214,13 @@ function updateLog(wikiDir: string, created: string[], updated: string[], archiv
   const entries: string[] = [];
 
   if (created.length > 0) {
-    entries.push(`  - Создано: ${created.join(", ")}`);
+    entries.push(`  - Created: ${created.join(", ")}`);
   }
   if (updated.length > 0) {
-    entries.push(`  - Обновлено: ${updated.join(", ")}`);
+    entries.push(`  - Updated: ${updated.join(", ")}`);
   }
   if (archived.length > 0) {
-    entries.push(`  - Архивировано: ${archived.join(", ")}`);
+    entries.push(`  - Archived: ${archived.join(", ")}`);
   }
 
   const entry = `## [${date}] wiki-update | ${created.length + updated.length} files processed\n${entries.join("\n")}\n`;
@@ -241,7 +241,7 @@ function updateLog(wikiDir: string, created: string[], updated: string[], archiv
 
   // Инициализация или добавление
   if (!existing.trim()) {
-    fs.writeFileSync(logFile, `# Wiki Log\n\n> Хронология изменений документации.\n\n${entry}`);
+    fs.writeFileSync(logFile, `# Wiki Log\n\n> Documentation change history.\n\n${entry}`);
   } else {
     fs.writeFileSync(logFile, existing.trimEnd() + "\n\n" + entry);
   }
@@ -269,7 +269,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   const total = files.length;
 
   if (total === 0) {
-    if (!opts.quiet) console.log("\n⚠️ Нет файлов для обработки (Wiki)");
+    if (!opts.quiet) console.log("\n⚠️ No files to process (Wiki)");
     return;
   }
 
@@ -319,7 +319,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       success = true;
     } catch (err) {
       if (opts.verbose) console.log(`  ⚠️ Wiki LLM error for ${file}: ${(err as Error)?.message}`);
-      doc = `Компонент **${componentName}**.\n\n*Документация не сгенерирована (LLM error).*`;
+      doc = `Component **${componentName}**.\n\n*Documentation was not generated (LLM error).*`;
     }
 
     fileDataList.push({ file, code, astInfo, componentName, doc, success, hash: currentHash });

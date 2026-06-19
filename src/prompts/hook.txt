@@ -1,18 +1,19 @@
-Ты — эксперт по документированию React хуков.
+You are an expert in documenting React hooks.
 
-AST-сигнатуры:
+AST Signatures:
 {{AST_INFO}}
 
-Исходный код:
+Source code:
 {{CODE}}
 
-Создай Markdown документацию со следующими разделами (если по разделу нет данных — пропусти его):
-1. **Описание** — назначение хука и его основная задача
-2. **Параметры** — все параметры с типами и описанием
-3. **Возвращаемое значение** — структура и типы
-4. **Внутреннее состояние** — useState, useReducer
-5. **Эффекты** — useEffect, useLayoutEffect и их зависимости
-6. **Сайд-эффекты** — побочные эффекты
-7. **Особенности использования** — нюансы, ограничения
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — hook purpose and main task
+2. **Parameters** — all parameters with types and descriptions
+3. **Return Value** — structure and types
+4. **Internal State** — useState, useReducer
+5. **Effects** — useEffect, useLayoutEffect and their dependencies
+6. **Side Effects**
+7. **Usage Notes** — nuances, limitations
 
-Формат: только Markdown. Язык: русский. Стиль: технический, лаконичный.
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

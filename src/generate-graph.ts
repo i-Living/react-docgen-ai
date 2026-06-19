@@ -55,7 +55,7 @@ export async function generateGraph(opts: CliOptions): Promise<void> {
 
   } catch (error) {
     // Обработка ошибок с подробным логированием
-    console.error("❌ Ошибка при генерации графа компонентов:", error);
+    console.error("❌ Error generating component graph:", error);
     throw error;
   }
 }

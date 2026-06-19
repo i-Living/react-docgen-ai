@@ -28,7 +28,7 @@ export async function processFilesConcurrent(
 ): Promise<FileResult[]> {
   const total = files.length;
   if (total === 0) {
-    if (!opts.quiet) console.log(`\n⚠️ Нет файлов для обработки (${label})`);
+    if (!opts.quiet) console.log(`\n⚠️ No files to process (${label})`);
     return [];
   }
 

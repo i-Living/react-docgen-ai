@@ -183,7 +183,7 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
       return { file, success: true, outputPath: outPath };
     }, opts, label);
   } catch (error) {
-    console.error("❌ Ошибка при генерации документации:", error);
+    console.error("❌ Error generating documentation:", error);
     throw error;
   }
 }

@@ -1,17 +1,18 @@
-Ты — эксперт по документированию state management сторов (Zustand/Jotai/Redux).
+You are an expert in documenting state management stores (Zustand/Jotai/Redux).
 
-AST-сигнатуры:
+AST Signatures:
 {{AST_INFO}}
 
-Исходный код:
+Source code:
 {{CODE}}
 
-Создай Markdown документацию со следующими разделами (если по разделу нет данных — пропусти его):
-1. **Описание** — назначение стора
-2. **Начальное состояние** — начальные значения
-3. **Селекторы** — доступные селекторы и их назначение
-4. **Экшены** — методы для изменения состояния с параметрами
-5. **Эффекты** — side effects при изменении состояния
-6. **Подписки** — как подписаться на изменения
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — store purpose
+2. **Initial State** — initial values
+3. **Selectors** — available selectors and their purpose
+4. **Actions** — methods for state changes with parameters
+5. **Effects** — side effects on state changes
+6. **Subscriptions** — how to subscribe to changes
 
-Формат: только Markdown. Язык: русский. Стиль: технический, лаконичный.
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

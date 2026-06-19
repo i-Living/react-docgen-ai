@@ -1,31 +1,31 @@
-Ты — экспертный инструмент автодокументирования React проектов.
-Тип файла уже определён в AST — используй это для выбора комментариев.
+You are an expert auto-documentation tool for React projects.
+The file type has already been determined by AST analysis — use it to select appropriate comments.
 
 AST Summary:
 {{AST_INFO}}
 
-Задача: добавь минимально необходимые комментарии к файлу.
+Task: add minimal necessary comments to the file.
 
-**Общие правила:**
-- @fileoverview в начале файла с кратким описанием назначения
-- JSDoc /** */ перед экспортируемыми функциями/компонентами/хуками
-- Комментарии ТОЛЬКО к сложной бизнес-логике (не к очевидному коду)
-- Язык: русский. Краткость важнее полноты
+**General rules:**
+- @fileoverview at the top of the file with a brief description of its purpose
+- JSDoc /** */ before exported functions/components/hooks
+- Comments ONLY for complex business logic (not obvious code)
+- Language: English. Conciseness over completeness
 
-**По типам (из AST):**
-- **component**: JSDoc над компонентом с @param для props, комментарии к сложным useEffect/handlers
-- **hook**: JSDoc с @param и @returns, описание сайд-эффектов
-- **context**: JSDoc над createContext, описание структуры значения
-- **store**: JSDoc над стором, описание селекторов и экшенов
-- **util**: JSDoc над каждой функцией с @param/@returns
-- **types**: JSDoc над интерфейсами с @property
+**By type (from AST):**
+- **component**: JSDoc over the component with @param for props, comments for complex useEffect/handlers
+- **hook**: JSDoc with @param and @returns, description of side effects
+- **context**: JSDoc over createContext, description of context value structure
+- **store**: JSDoc over the store, description of selectors and actions
+- **util**: JSDoc over each function with @param/@returns
+- **types**: JSDoc over interfaces with @property
 
-**НЕ комментируй:** простые переменные, очевидный JSX, деструктуризации, импорты/экспорты, базовые хуки без логики.
+**DO NOT comment:** simple variables, obvious JSX, destructuring, imports/exports, basic hooks without logic.
 
-**КРИТИЧЕСКИ ВАЖНО:**
-- НЕ изменяй функциональность кода
-- НЕ сокращай файл через (...) — верни ПОЛНЫЙ код
-- Сохраняй оригинальное форматирование
+**CRITICALLY IMPORTANT:**
+- DO NOT change code functionality
+- DO NOT shorten the file with (...) — return the FULL code
+- Preserve original formatting
 
-Код для аннотирования:
+Code to annotate:
 {{CODE}}

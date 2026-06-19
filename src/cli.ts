@@ -59,39 +59,39 @@ program
   .version(PKG_VERSION);
 
 program
-  .requiredOption("-s, --src <path>", "Путь к исходной директории или отдельному файлу с React компонентами")
+  .requiredOption("-s, --src <path>", "Path to source directory or single file with React components")
   .option("-o, --out <path>", "Выходная директория для результатов", DEFAULT_OUT)
-  .option("--annotate", "Аннотировать код путем добавления подробных комментариев")
-  .option("--annotate-inplace", "Аннотировать код непосредственно в исходных файлах")
-  .option("--docs", "Генерировать подробную Markdown документацию для компонентов")
-  .option("--graph", "Генерировать граф зависимостей компонентов (DOT и Markdown форматы)")
-  .option("-e, --extensions <exts>", "Расширения файлов для обработки", DEFAULT_EXTENSIONS)
-  .option("--api <url>", "URL API для локального LLM сервера", DEFAULT_API)
-  .option("--opencode", "Использовать OpenCode SDK вместо HTTP запросов к LLM", false)
+  .option("--annotate", "Annotate code by adding detailed comments")
+  .option("--annotate-inplace", "Annotate code directly in source files")
+  .option("--docs", "Generate detailed Markdown documentation for components")
+  .option("--graph", "Generate component dependency graph (DOT and Markdown)")
+  .option("-e, --extensions <exts>", "File extensions to process", DEFAULT_EXTENSIONS)
+  .option("--api <url>", "LLM API URL (OpenAI-compatible endpoint)", DEFAULT_API)
+  .option("--opencode", "Use OpenCode SDK instead of HTTP LLM calls", false)
   .option("--opencode-model <model>", "Модель для LLM (имя модели для HTTP или формат provider/model для OpenCode SDK)", readEnv("LLM_API_MODEL", ""))
   .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
   .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
-  .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false)
+  .option("--force", "Force process files with @fileoverview", false)
   .option("--parallel <number>", "Количество параллельных запросов к LLM", DEFAULT_PARALLEL)
-  .option("--prompt-dir <path>", "Директория с кастомными файлами промптов")
-  .option("--dry-run", "Режим сухого прогона (без вызова LLM и записи)", false)
-  .option("--format <format>", "Формат вывода документации (markdown|json)", "markdown")
-  .option("--stream", "Использовать streaming для HTTP провайдера", false)
-  .option("--wiki [path]", "Генерировать LLM Wiki (Obsidian-совместимая документация) в указанную директорию", DEFAULT_WIKI || undefined)
-  .option("--verbose", "Подробный вывод информации о процессе", false)
-  .option("--quiet", "Тихий режим — минимум логов", false);
+  .option("--prompt-dir <path>", "Directory with custom prompt files")
+  .option("--dry-run", "Dry run mode (no LLM calls or writes)", false)
+  .option("--format <format>", "Output format (markdown|json)", "markdown")
+  .option("--stream", "Enable streaming for HTTP provider", false)
+  .option("--wiki [path]", "Generate LLM Wiki (Obsidian-compatible docs) to specified directory", DEFAULT_WIKI || undefined)
+  .option("--verbose", "Verbose output of process information", false)
+  .option("--quiet", "Quiet mode — minimal logging", false);
 
 program.action(async (opts: Record<string, any>) => {
   try {
     if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph && !opts.wiki) {
-      console.log("Ошибка: Выберите хотя бы одну опцию: --annotate, --annotate-inplace, --docs, --graph или --wiki");
-      console.log("\nИспользование:");
+      console.log("Error: Choose at least one option: --annotate, --annotate-inplace, --docs, --graph or --wiki");
+      console.log("\nUsage:");
       console.log("  react-docgen-ai --src ./src --annotate");
       console.log("  react-docgen-ai --src ./src --annotate-inplace");
       console.log("  react-docgen-ai --src ./src --docs");
       console.log("  react-docgen-ai --src ./src --graph");
       console.log("  react-docgen-ai --src ./src --wiki");
-      console.log("  react-docgen-ai --src ./src --annotate --docs --graph");
+      
       process.exit(1);
     }
 
@@ -146,16 +146,16 @@ program.action(async (opts: Record<string, any>) => {
     }
 
     if (!opts.dryRun && !opts.quiet) {
-      console.log("\nВсе операции успешно завершены!");
+      console.log("\nAll operations completed successfully!");
     }
   } catch (error) {
-    console.error("Критическая ошибка:", error);
+    console.error("Fatal error:", error);
 
     if (error instanceof Error) {
       if (error.message.includes("EACCES")) {
-        console.log("\nВозможно, недостаточно прав доступа.");
+        console.log("\nPossible insufficient permissions.");
       } else if (error.message.includes("ENOENT")) {
-        console.log("\nВозможно, указан несуществующий путь.");
+        console.log("\nPossibly a non-existent path.");
       }
     }
 
@@ -166,12 +166,12 @@ program.action(async (opts: Record<string, any>) => {
 });
 
 program.on("command:*", () => {
-  console.error("Неизвестная команда. Используйте --help для получения справки.");
+  console.error("Unknown command. Use --help.");
   process.exit(1);
 });
 
 process.on("SIGINT", () => {
-  console.log("\n\nПолучен сигнал прерывания. Завершение работы...");
+  console.log("\n\nInterrupt signal received. Shutting down...");
   process.exit(0);
 });
 

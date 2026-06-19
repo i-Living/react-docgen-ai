@@ -422,7 +422,10 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
 
   // === Step 8: Sync AGENTS.md / CLAUDE.md project root file ===
   if (!opts.dryRun) {
-    updateAgentsMd(wikiDir);
+    // Determine target project root from src path
+    const srcAbs = path.resolve(process.cwd(), opts.src);
+    const projectRoot = path.basename(srcAbs) === "src" ? path.dirname(srcAbs) : srcAbs;
+    updateAgentsMd(wikiDir, projectRoot);
   }
 
   // === Summary ===
@@ -461,7 +464,7 @@ const WIKI_MARKER_END = "<!-- wiki-end -->";
 /**
  * Updates (or creates) a reference to the wiki in the project root agent file.
  *
- * Looks for AGENTS.md, CLAUDE.md, or agent.md (in that order).
+ * Looks for AGENTS.md, CLAUDE.md, or agent.md (in that order) inside projectRoot.
  * If the file exists and contains the wiki markers — replaces the block in-place.
  * If the file exists but no markers — appends the block at the end.
  * If no agent file exists — creates AGENTS.md with the block.
@@ -469,21 +472,19 @@ const WIKI_MARKER_END = "<!-- wiki-end -->";
  * The block between markers is owned by the tool and can be safely replaced
  * on every run without duplicating or breaking user content.
  */
-function updateAgentsMd(wikiDir: string): void {
-  const cwd = process.cwd();
-
+function updateAgentsMd(wikiDir: string, projectRoot: string): void {
   // Find which agent file to use
   let targetFile: string | null = null;
   for (const name of AGENT_FILES) {
-    const fp = path.join(cwd, name);
+    const fp = path.join(projectRoot, name);
     if (fs.existsSync(fp)) {
       targetFile = fp;
       break;
     }
   }
 
-  // Build relative path from cwd to wiki
-  const relWiki = path.relative(cwd, wikiDir).replace(/\\/g, "/") || ".";
+  // Build relative path from project root to wiki
+  const relWiki = path.relative(projectRoot, wikiDir).replace(/\\/g, "/") || ".";
 
   const block = `${WIKI_MARKER_START}
 ## Wiki Documentation
@@ -518,8 +519,8 @@ ${WIKI_MARKER_END}`;
     }
     fs.writeFileSync(targetFile, content, "utf-8");
   } else {
-    // Create AGENTS.md
-    const newPath = path.join(cwd, AGENT_FILES[0]!);
+    // Create AGENTS.md in project root
+    const newPath = path.join(projectRoot, AGENT_FILES[0]!);
     const content = `# Agent Instructions\n\n${block}\n`;
     fs.writeFileSync(newPath, content, "utf-8");
   }

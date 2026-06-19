@@ -156,18 +156,24 @@ function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
 
 // ── Persistent state tracking ──────────────────────────────────────────────
 
-/** Хранит список страниц, которые существовали до этого запуска */
+/**
+ * Читает список существующих страниц из entities/ директории.
+ * Более надёжно, чем парсинг [[wikilinks]] из index.md —
+ * не захватывает ложные ссылки из summary-текста.
+ */
 function readExistingPages(wikiDir: string): Set<string> {
-  const indexFile = path.join(wikiDir, INDEX_FILE);
-  if (!fs.existsSync(indexFile)) return new Set();
+  const entitiesDir = path.join(wikiDir, ENTITIES_DIR);
+  if (!fs.existsSync(entitiesDir)) return new Set();
 
-  const content = fs.readFileSync(indexFile, "utf-8");
   const existing = new Set<string>();
-  // Ищем [[wikilinks]] в index.md — это и есть страницы
-  const linkRe = /\[\[([^\]]+)\]\]/g;
-  let match;
-  while ((match = linkRe.exec(content)) !== null) {
-    existing.add(match[1]!);
+  const files = fs.readdirSync(entitiesDir);
+  for (const file of files) {
+    if (file.endsWith(".md")) {
+      // Имя страницы = имя файла без расширения (slug → оригинальное имя не восстанавливается,
+      // но для сравнения с currentPages используем componentName, который тоже slugify'ится)
+      const pageName = file.replace(/\.md$/, "");
+      existing.add(pageName);
+    }
   }
   return existing;
 }
@@ -339,7 +345,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     const pageName = data.componentName;
     const pageSlug = slugify(pageName) + ".md";
     const pagePath = path.join(entitiesDir, pageSlug);
-    currentPages.add(pageName);
+    currentPages.add(slugify(pageName));
 
     // Дети и родители из графа
     const node = graph[pageName];
@@ -351,7 +357,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     // frontmatter
     const fm: WikiFrontmatter = {
       title: pageName,
-      created: existingPages.has(pageName) ? getFileDate(pagePath, "created") : today(),
+      created: existingPages.has(slugify(pageName)) ? getFileDate(pagePath, "created") : today(),
       updated: today(),
       type: "entity",
       tags: ["component", data.astInfo.exportsComponent ? "exported" : "internal"],
@@ -371,7 +377,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
 
     fs.writeFileSync(pagePath, content, "utf-8");
 
-    if (existingPages.has(pageName)) {
+    if (existingPages.has(slugify(pageName))) {
       updatedPages.push(pageName);
     } else {
       createdPages.push(pageName);

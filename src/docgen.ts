@@ -163,6 +163,8 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
 
       // Валидация ответа — проверяем на неправильные ответы
       if (!isValidDocumentation(doc, format)) {
+        // Короткая пауза перед retry — возможная причина: нагрузка на LLM
+        await new Promise((resolve) => setTimeout(resolve, 500));
         const strictPrompt = makeDocPromptStrict(prompt);
         doc = await callLlm(opts, strictPrompt);
       }

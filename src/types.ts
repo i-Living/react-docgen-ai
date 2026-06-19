@@ -28,7 +28,7 @@ export interface CliOptions {
   force?: boolean;
   /** Использовать OpenCode SDK вместо HTTP */
   opencode?: boolean;
-  /** Модель для OpenCode (формат "provider/model") */
+  /** Модель для LLM (формат: provider/model для OpenCode SDK, или имя модели для HTTP) */
   opencodeModel?: string;
   /** Количество параллельных запросов к LLM (по умолчанию 4) */
   parallel?: number;
@@ -171,6 +171,8 @@ export interface LlmApiOptions {
   temperature?: number;
   /** Использовать streaming */
   stream?: boolean;
+  /** Модель для HTTP провайдера (например glm-5.2, deepseek-v4-flash) */
+  model?: string;
 }
 
 /**

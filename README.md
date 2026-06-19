@@ -70,7 +70,7 @@ bun run start -- --src ./src --wiki
 | `LLM_API_URL` | `--api` | `http://localhost:8000/completions` |
 | `LLM_MAX_TOKENS` | `--max-tokens` | `4096` |
 | `LLM_TEMPERATURE` | `--temperature` | `0.1` |
-| `OPENCODE_DEFAULT_MODEL` | `--opencode-model` | — |
+| `LLM_API_MODEL` | `--opencode-model` | `deepseek-v4-flash` |
 | `DOCGEN_OUT` | `--out` | `./ai-output` |
 | `DOCGEN_EXTENSIONS` | `--extensions` | `js,jsx,ts,tsx` |
 | `DOCGEN_WIKI` | `--wiki` | — |

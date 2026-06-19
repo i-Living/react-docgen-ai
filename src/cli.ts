@@ -68,7 +68,7 @@ program
   .option("-e, --extensions <exts>", "Расширения файлов для обработки", DEFAULT_EXTENSIONS)
   .option("--api <url>", "URL API для локального LLM сервера", DEFAULT_API)
   .option("--opencode", "Использовать OpenCode SDK вместо HTTP запросов к LLM", false)
-  .option("--opencode-model <model>", "Модель для OpenCode (формат: provider/model, например openrouter/anthropic/claude-sonnet-4)", readEnv("OPENCODE_DEFAULT_MODEL", ""))
+  .option("--opencode-model <model>", "Модель для LLM (имя модели для HTTP или формат provider/model для OpenCode SDK)", readEnv("LLM_API_MODEL", ""))
   .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
   .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
   .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false)

@@ -43,7 +43,7 @@ export async function callLlm(
     return await callOpencode(prompt, model);
   }
 
-  // HTTP провайдер — передаём stream и другие опции
+  // HTTP провайдер — передаём stream, модель и другие опции
   const llmOptions: LlmApiOptions = {};
   if (options?.maxTokens != null) llmOptions.maxTokens = options.maxTokens;
   else if (opts.maxTokens != null) llmOptions.maxTokens = opts.maxTokens;
@@ -51,6 +51,9 @@ export async function callLlm(
   else if (opts.temperature != null) llmOptions.temperature = opts.temperature;
   if (options?.stream != null) llmOptions.stream = options.stream;
   else if (opts.stream) llmOptions.stream = true;
+  // Модель: для HTTP — имя модели, для OpenCode — провайдер/модель
+  const model = options?.model || opts.opencodeModel || "";
+  if (model) llmOptions.model = model;
 
   if (llmOptions && Object.keys(llmOptions).length > 0) {
     return await callLLM(opts.api, prompt, llmOptions);

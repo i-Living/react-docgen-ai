@@ -128,10 +128,14 @@ function isChatApi(api: string): boolean {
 }
 
 /**
- * Извлекает текст ответа из chat completions формата
+ * Извлекает текст ответа из chat completions формата.
+ * Падает на reasoning_content если content пустой (GLM, DeepSeek).
  */
 function extractChatResponse(data: any): string {
-  return data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.text || '';
+  const msg = data.choices?.[0]?.message;
+  if (msg?.content) return msg.content;
+  if (msg?.reasoning_content) return msg.reasoning_content;
+  return data.choices?.[0]?.text || data.text || '';
 }
 
 /**
@@ -197,13 +201,14 @@ export async function callLLM(
     maxTokens = 4096, 
     temperature = 0.1,
     stream = false,
+    model = "",
   } = options;
 
   // Определяем формат API по URL
   const useChat = isChatApi(api);
 
   // Формируем payload для отправки в API
-  const requestPayload = useChat
+  const requestPayload: Record<string, unknown> = useChat
     ? {
         messages: [{ role: 'user' as const, content: prompt }],
         max_tokens: maxTokens,
@@ -217,11 +222,23 @@ export async function callLLM(
         stream,
       };
 
+  // Добавляем модель, если указана
+  if (model) {
+    requestPayload["model"] = model;
+  }
+
   return withRetry(async () => {
+    // Передаём API-ключ если задан (для облачных провайдеров)
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const apiKey = process.env.LLM_API_KEY || '';
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
     // Выполняем POST запрос к LLM API через fetch
     const response = await fetch(api, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(requestPayload)
     });
 

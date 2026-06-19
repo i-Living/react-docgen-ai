@@ -9,7 +9,7 @@
 import fs from "fs";
 import path from "path";
 import { CliOptions, ComponentInfo } from "./types.js";
-import { getFiles, readFile } from "./file-utils.js";
+import { getFiles, readFile, hashContent, extractWikiHash } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { buildComponentGraph } from "./ast/component-graph.js";
@@ -32,6 +32,7 @@ interface WikiFrontmatter {
   tags: string[];
   source: string;
   confidence: "high" | "medium" | "low";
+  hash: string;
 }
 
 /**
@@ -39,7 +40,18 @@ interface WikiFrontmatter {
  */
 function toFrontmatter(fm: WikiFrontmatter): string {
   const tags = fm.tags.map((t) => `  - ${t}`).join("\n");
-  return `---\ntitle: ${fm.title}\ncreated: ${fm.created}\nupdated: ${fm.updated}\ntype: ${fm.type}\ntags:\n${tags}\nsource: ${fm.source}\nconfidence: ${fm.confidence}\n---`;
+  return `---\ntitle: ${fm.title}\ncreated: ${fm.created}\nupdated: ${fm.updated}\ntype: ${fm.type}\ntags:\n${tags}\nsource: ${fm.source}\nconfidence: ${fm.confidence}\nhash: ${fm.hash}\n---`;
+}
+
+/**
+ * Извлекает тело wiki-страницы (без YAML frontmatter).
+ * Используется при hash-match для переиспользования существующей документации.
+ */
+function extractWikiBody(content: string): string {
+  // Убираем frontmatter (--- ... ---)
+  const fmEnd = content.indexOf("---\n", content.indexOf("---\n") + 1);
+  if (fmEnd === -1) return content;
+  return content.slice(fmEnd + 4).trim();
 }
 
 /**
@@ -229,6 +241,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     componentName: string;
     doc: string;
     success: boolean;
+    hash: string;
   };
 
   const fileDataList: FileData[] = [];
@@ -238,9 +251,29 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     const code: string = readFile(file);
     const astInfo = extractComponentInfo(code);
     const componentName = astInfo.name || path.basename(file, path.extname(file));
+    const currentHash = hashContent(code);
+
+    // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+    if (astInfo.fileType === "skip") {
+      return { file, success: true, skipped: true, outputPath: entitiesDir };
+    }
 
     if (!astInfo.exportsComponent) {
       // Даже для неэкспортируемых файлов создаём wiki-страницу, но confidence = low
+    }
+
+    // Инкрементальность: проверяем хэш существующей страницы
+    const pageSlug = slugify(componentName) + ".md";
+    const pagePath = path.join(entitiesDir, pageSlug);
+    if (!opts.force && fs.existsSync(pagePath)) {
+      const existingContent = fs.readFileSync(pagePath, "utf-8");
+      const existingHash = extractWikiHash(existingContent);
+      if (existingHash === currentHash) {
+        // Хэш совпадает — переиспользуем существующую документацию без LLM-вызова
+        const oldDoc = extractWikiBody(existingContent);
+        fileDataList.push({ file, code, astInfo, componentName, doc: oldDoc, success: true, hash: currentHash });
+        return { file, success: true, skipped: true, skipReason: "hash-match", outputPath: entitiesDir };
+      }
     }
 
     // Получаем LLM-документацию
@@ -256,7 +289,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       doc = `Компонент **${componentName}**.\n\n*Документация не сгенерирована (LLM error).*`;
     }
 
-    fileDataList.push({ file, code, astInfo, componentName, doc, success });
+    fileDataList.push({ file, code, astInfo, componentName, doc, success, hash: currentHash });
 
     return { file, success, outputPath: entitiesDir };
   }, opts, "Wiki generation");
@@ -298,6 +331,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       tags: ["component", data.astInfo.exportsComponent ? "exported" : "internal"],
       source: data.file,
       confidence: estimateConfidence(data.astInfo),
+      hash: data.hash,
     };
 
     // Собираем содержимое

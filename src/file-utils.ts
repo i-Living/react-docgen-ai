@@ -6,6 +6,7 @@
 
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 /**
  * Рекурсивно находит файлы с указанными расширениями в директории
@@ -250,4 +251,51 @@ export async function getDocFiles(docsDir: string): Promise<string[]> {
  */
 export function deleteFile(filePath: string): void {
   fs.rmSync(filePath, { recursive: true, force: true });
+}
+
+// ── Hash-based incrementality ───────────────────────────────────────────────
+
+/**
+ * Вычисляет SHA-256 хэш содержимого (первые 16 hex-символов).
+ * Используется для инкрементальности — если хэш исходника не изменился,
+ * LLM-вызов пропускается.
+ */
+export function hashContent(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex").substring(0, 16);
+}
+
+/**
+ * Читает существующий выходной файл документации.
+ * @param baseOut - Базовая выходная директория
+ * @param srcFile - Путь к исходному файлу
+ * @returns Содержимое файла или null, если файл не существует
+ */
+export function readOutputFile(baseOut: string, srcFile: string): string | null {
+  const rel: string = path.relative(process.cwd(), srcFile);
+  const outPath: string = path.join(baseOut, rel);
+  try {
+    return fs.readFileSync(outPath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Извлекает хэш из файла документации (HTML-комментарий в начале).
+ * Формат: `<!-- docgen-hash: abc123 -->`
+ * @returns Хэш или null, если комментарий не найден
+ */
+export function extractDocHash(content: string): string | null {
+  const match = content.match(/<!-- docgen-hash: ([a-f0-9]+) -->/);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Извлекает хэш из YAML frontmatter wiki-страницы.
+ * Формат: `hash: abc123`
+ * @returns Хэш или null, если поле не найдено
+ */
+export function extractWikiHash(content: string): string | null {
+  const match = content.match(/^hash:\s*([a-f0-9]+)/m);
+  return match?.[1] ?? null;
 }

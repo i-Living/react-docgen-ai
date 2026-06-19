@@ -188,20 +188,23 @@ Line 3 with replaced3`;
       effects: [],
       handlers: [],
       jsxTree: ['div', 'Avatar', 'h3', 'p'],
-      exportsComponent: true
+      exportsComponent: true,
+      fileType: 'component' as const,
+      hasContext: false,
     };
 
     const componentCode = 'const UserCard = ({ user }) => <div><Avatar />{user.name}</div>';
 
-    it('should generate documentation prompt with AST info and code', () => {
+    it('should generate documentation prompt with compact AST info', () => {
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
       jest.spyOn(fs, 'readFileSync').mockReturnValue('Generate docs for:\n{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(astInfo, componentCode);
       
       expect(result).toContain('Generate docs for:');
-      expect(result).toContain(JSON.stringify(astInfo, null, 2));
-      expect(result).toContain(componentCode);
+      expect(result).toContain('Name: UserCard');
+      expect(result).toContain('Props: { user?: User }');
+      expect(result).toContain('JSX: <div>, <Avatar>, <h3>, <p>');
     });
 
     it('should handle TypeScript interfaces in props', () => {
@@ -218,7 +221,9 @@ Line 3 with replaced3`;
         effects: [],
         handlers: [],
         jsxTree: ['div', 'label', 'input', 'span'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
       };
 
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -226,8 +231,9 @@ Line 3 with replaced3`;
       
       const result = getDocumentationPrompt(tsAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(tsAstInfo, null, 2));
-      expect(result).toContain(componentCode);
+      expect(result).toContain('Name: FormField');
+      expect(result).toContain('label: string');
+      expect(result).toContain('onChange: (value: string) => void');
     });
 
     it('should handle component with multiple useEffect hooks', () => {
@@ -245,7 +251,9 @@ Line 3 with replaced3`;
         ],
         handlers: [],
         jsxTree: ['div', 'Spinner', 'ErrorMessage', 'DataTable'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
       };
 
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -253,7 +261,9 @@ Line 3 with replaced3`;
       
       const result = getDocumentationPrompt(effectAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(effectAstInfo, null, 2));
+      expect(result).toContain('State: [data, loading, error]');
+      expect(result).toContain('useEffect([endpoint])');
+      expect(result).toContain('useEffect([data, loading])');
     });
   });
 });

@@ -1,13 +1,13 @@
 /**
- * @fileoverview Тесты для модуля generate-graph
+ * @fileoverview Tests for generate-graph module
  * @author AI Docgen
  * @version 1.0.0
  */
 
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
-// Mutable mock objects для модулей
-// Используем plain функции (не bun mocks) для совместимости с mock.module
+// Mutable mock objects for modules
+// Use plain functions (not bun mocks) for mock.module compatibility
 const mockFileUtils: Record<string, any> = {
   getFiles: mock(async () => [] as string[]),
   readFile: mock(() => ''),

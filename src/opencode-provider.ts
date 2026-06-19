@@ -1,5 +1,5 @@
 /**
- * @fileoverview Провайдер LLM через OpenCode SDK
+ * @fileoverview LLM provider via OpenCode SDK
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -12,12 +12,12 @@ let _instance: {
   server: { close(): void };
 } | null = null;
 
-/** Таймаут для длинных генераций */
+/** Timeout for long generations */
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 /**
- * Инициализирует OpenCode SDK (lazy singleton).
- * Запускает локальный сервер и создаёт клиент.
+ * Initializes OpenCode SDK (lazy singleton).
+ * Starts a local server and creates a client.
  */
 async function ensureInit(): Promise<void> {
   if (_instance) return;
@@ -25,12 +25,12 @@ async function ensureInit(): Promise<void> {
 }
 
 /**
- * Отправляет промпт в LLM через OpenCode SDK.
- * Создаёт одноразовую сессию, отправляет сообщение, возвращает текст ответа.
+ * Sends prompt to LLM via OpenCode SDK.
+ * Creates a single-use session, sends a message, returns the response text.
  *
- * @param prompt - Текст промпта
- * @param model - Модель в формате "provider/model" (e.g. "openrouter/anthropic/claude-sonnet-4")
- * @returns Текстовый ответ ассистента
+ * @param prompt - Prompt text
+ * @param model - Model in format "provider/model" (e.g. "openrouter/anthropic/claude-sonnet-4")
+ * @returns Text response from assistant
  */
 export async function callOpencode(
   prompt: string,
@@ -38,7 +38,7 @@ export async function callOpencode(
 ): Promise<string> {
   await ensureInit();
 
-  // Создаём сессию
+  // Create session
   const sessionResp = await _instance!.client.session.create({
     body: { title: "react-docgen-ai" },
   });
@@ -46,7 +46,7 @@ export async function callOpencode(
   const sessionId: string = (session as any).id ?? (session as any).data?.id;
 
   try {
-    // Отправляем промпт
+    // Send prompt
     const parts: Array<{ type: "text"; text: string }> = [
       { type: "text", text: prompt },
     ];
@@ -72,7 +72,7 @@ export async function callOpencode(
 
     const responseData = promptResp.data ?? promptResp;
 
-    // Извлекаем текст из частей ответа
+    // Extract text from response parts
     const parts_ = (
       Array.isArray(responseData)
         ? responseData
@@ -85,7 +85,7 @@ export async function callOpencode(
 
     return textParts.join("\n") || "";
   } finally {
-    // Очищаем сессию
+    // Clean up session
     try {
       await _instance!.client.session.delete({ path: { id: sessionId } });
     } catch {
@@ -95,7 +95,7 @@ export async function callOpencode(
 }
 
 /**
- * Закрывает OpenCode SDK и освобождает ресурсы.
+ * Closes OpenCode SDK and releases resources.
  */
 export function closeOpencode(): void {
   if (_instance) {
@@ -109,7 +109,7 @@ export function closeOpencode(): void {
 }
 
 /**
- * Проверяет, инициализирован ли OpenCode SDK.
+ * Checks if OpenCode SDK is initialized.
  */
 export function isOpencodeInitialized(): boolean {
   return _instance !== null;

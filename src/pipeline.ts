@@ -1,24 +1,24 @@
 /**
- * @fileoverview Параллельный пайплайн обработки файлов с прогресс-баром
+ * @fileoverview Parallel file processing pipeline with progress bar
  */
 
 import { CliOptions, FileResult } from "./types.js";
 import { renderProgress, finalizeProgress } from "./progress.js";
 
 /**
- * Обработчик одного файла.
- * Возвращает результат обработки.
+ * Single file handler.
+ * Returns processing result.
  */
 export type FileHandler = (file: string, index: number, total: number) => Promise<FileResult>;
 
 /**
- * Обрабатывает список файлов с заданной конкурентностью.
+ * Processes a list of files with given concurrency.
  *
- * @param files - Список путей к файлам
- * @param handler - Асинхронный обработчик каждого файла
- * @param opts - Опции CLI (для parallel, dryRun)
- * @param label - Метка для прогресс-бара
- * @returns Массив результатов
+ * @param files - List of file paths
+ * @param handler - Async handler for each file
+ * @param opts - CLI options (for parallel, dryRun)
+ * @param label - Label for progress bar
+ * @returns Array of results
  */
 export async function processFilesConcurrent(
   files: string[],
@@ -37,7 +37,7 @@ export async function processFilesConcurrent(
 
   if (opts.dryRun) {
     if (!opts.quiet) console.log(`\n🧪 [DRY RUN] ${label}: ${total} files\n`);
-    // В dry-run просто показываем что будет
+    // In dry-run, just show what would happen
     for (const file of files) {
       if (!opts.quiet) console.log(`  ⏭️ Would process: ${file}`);
     }
@@ -48,7 +48,7 @@ export async function processFilesConcurrent(
   if (!opts.quiet) console.log(`\n📘 ${label}: ${total} files (concurrency: ${concurrency})`);
   if (!opts.quiet) renderProgress(0, total);
 
-  // Разбиваем файлы на батчи по concurrency штук
+  // Split files into batches of concurrency size
   const batches: string[][] = [];
   for (let i = 0; i < total; i += concurrency) {
     batches.push(files.slice(i, i + concurrency));

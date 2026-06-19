@@ -194,7 +194,7 @@ describe('compact-format', () => {
 
       const payload = buildPromptPayload(info, code);
 
-      expect(payload.CODE).toContain('код опущен');
+      expect(payload.CODE).toContain('code omitted');
       expect(payload.AST_INFO).toContain('Name: SmallComponent');
     });
   });

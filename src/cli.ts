@@ -1,5 +1,5 @@
 /** 
- * @fileoverview Командная строка для react-docgen-ai
+ * @fileoverview Command-line interface for react-docgen-ai
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -16,7 +16,7 @@ import { generateWiki } from "./wiki-generator.js";
 import { CliOptions } from "./types.js";
 import { readEnv, readEnvInt, readEnvFloat } from "./env.js";
 
-// -- Env-умолчания --
+// -- Env defaults --
 const DEFAULT_API       = readEnv("LLM_API_URL", "http://localhost:8000/completions");
 const DEFAULT_MAX_TOKENS = String(readEnvInt("LLM_MAX_TOKENS", 4096));
 const DEFAULT_TEMP       = String(readEnvFloat("LLM_TEMPERATURE", 0.1));
@@ -26,10 +26,10 @@ const DEFAULT_PARALLEL   = String(readEnvInt("DOCGEN_PARALLEL", 4));
 const DEFAULT_WIKI       = readEnv("DOCGEN_WIKI", "");
 
 /**
- * Определяет путь wiki из CLI-аргумента.
+ * Resolves wiki path from CLI argument.
  * - `--wiki ./path` -> ./path
- * - `--wiki` (без значения) -> ./wiki
- * - ничего -> undefined (отключено) или env-значение
+ * - `--wiki` (no value) -> ./wiki
+ * - none -> undefined (disabled) or env value
  */
 function resolveWiki(wikiOpt: string | boolean | undefined): string | undefined {
   if (wikiOpt === true) {
@@ -55,12 +55,12 @@ const program = new Command();
 
 program
   .name("react-docgen-ai")
-  .description("Автоматическое документирование и аннотирование React кода с использованием LLM")
+  .description("Automatic documentation and annotation of React code using LLM")
   .version(PKG_VERSION);
 
 program
   .requiredOption("-s, --src <path>", "Path to source directory or single file with React components")
-  .option("-o, --out <path>", "Выходная директория для результатов", DEFAULT_OUT)
+  .option("-o, --out <path>", "Output directory for results", DEFAULT_OUT)
   .option("--annotate", "Annotate code by adding detailed comments")
   .option("--annotate-inplace", "Annotate code directly in source files")
   .option("--docs", "Generate detailed Markdown documentation for components")
@@ -68,11 +68,11 @@ program
   .option("-e, --extensions <exts>", "File extensions to process", DEFAULT_EXTENSIONS)
   .option("--api <url>", "LLM API URL (OpenAI-compatible endpoint)", DEFAULT_API)
   .option("--opencode", "Use OpenCode SDK instead of HTTP LLM calls", false)
-  .option("--opencode-model <model>", "Модель для LLM (имя модели для HTTP или формат provider/model для OpenCode SDK)", readEnv("LLM_API_MODEL", ""))
-  .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
-  .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
+  .option("--opencode-model <model>", "LLM model (model name for HTTP or provider/model format for OpenCode SDK)", readEnv("LLM_API_MODEL", ""))
+  .option("--max-tokens <number>", "Maximum tokens for LLM requests", DEFAULT_MAX_TOKENS)
+  .option("--temperature <number>", "LLM generation temperature (0.0 - 1.0)", DEFAULT_TEMP)
   .option("--force", "Force process files with @fileoverview", false)
-  .option("--parallel <number>", "Количество параллельных запросов к LLM", DEFAULT_PARALLEL)
+  .option("--parallel <number>", "Number of parallel LLM requests", DEFAULT_PARALLEL)
   .option("--prompt-dir <path>", "Directory with custom prompt files")
   .option("--dry-run", "Dry run mode (no LLM calls or writes)", false)
   .option("--format <format>", "Output format (markdown|json)", "markdown")
@@ -176,7 +176,7 @@ process.on("SIGINT", () => {
 });
 
 process.on("SIGTERM", () => {
-  console.log("\n\nПолучен сигнал завершения. Завершение работы...");
+  console.log("\n\nTermination signal received. Shutting down...");
   process.exit(0);
 });
 

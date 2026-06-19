@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля ast-extractor
+ * @fileoverview Tests for ast-extractor module
  * @author AI Docgen
  * @version 1.0.0
  */

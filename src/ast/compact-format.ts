@@ -1,21 +1,21 @@
 /**
- * @fileoverview Компактное представление AST-информации для LLM-промптов.
+ * @fileoverview Compact AST representation for LLM prompts.
  *
- * Вместо JSON.stringify(astInfo) (который даёт ~600-800 токенов на компонент),
- * формирует сжатое текстовое представление (~50-100 токенов).
+ * Instead of JSON.stringify(astInfo) (~600-800 tokens per component),
+ * forms a compact text representation (~50-100 tokens).
  *
- * Авто-режим: если исходник ≤ MAX_COMPACT_LINES строк — отправляем только
- * компактные сигнатуры (без кода). Иначе — сигнатуры + код.
+ * Auto-mode: if source ≤ MAX_COMPACT_LINES lines — send only
+ * compact signatures (no code). Otherwise — signatures + code.
  */
 
 import { ComponentInfo } from "../types.js";
 
-/** Порог: файлы длиннее этого — отправляем с кодом, короче — только сигнатуры */
+/** Threshold: files longer than this get code, shorter — only signatures */
 const MAX_COMPACT_LINES = 100;
 
 /**
- * Формирует компактное текстовое представление ComponentInfo.
- * Формат — ключ-значение, по одной строке на элемент.
+ * Builds compact text representation of ComponentInfo.
+ * Format — key-value, one line per element.
  */
 export function toCompactAst(info: ComponentInfo): string {
   const lines: string[] = [];
@@ -52,7 +52,7 @@ export function toCompactAst(info: ComponentInfo): string {
 
   // JSX tree
   if (info.jsxTree.length > 0) {
-    // Уникальные, preserving order
+    // Unique, preserving order
     const unique = [...new Set(info.jsxTree)];
     lines.push(`JSX: <${unique.join(">, <")}>`);
   }
@@ -71,9 +71,9 @@ export function toCompactAst(info: ComponentInfo): string {
 }
 
 /**
- * Определяет, нужно ли отправлять исходный код в LLM.
- * Файлы ≤ MAX_COMPACT_LINES строк — достаточно сигнатур.
- * Длиннее — нужен код для понимания логики.
+ * Determines whether to send source code to LLM.
+ * Files ≤ MAX_COMPACT_LINES lines — signatures enough.
+ * Longer — code needed for logic understanding.
  */
 export function shouldIncludeCode(code: string): boolean {
   const lineCount = code.split("\n").length;
@@ -81,11 +81,11 @@ export function shouldIncludeCode(code: string): boolean {
 }
 
 /**
- * Формирует payload для LLM-промпта:
- * - компактный AST (всегда)
- * - исходный код (только если shouldIncludeCode)
+ * Builds payload for LLM prompt:
+ * - compact AST (always)
+ * - source code (only if shouldIncludeCode)
  *
- * Возвращает объект с полями для подстановки в промпт.
+ * Returns an object with fields for prompt substitution.
  */
 export function buildPromptPayload(info: ComponentInfo, code: string): {
   AST_INFO: string;
@@ -96,6 +96,6 @@ export function buildPromptPayload(info: ComponentInfo, code: string): {
 
   return {
     AST_INFO: compactAst,
-    CODE: includeCode ? code : "(код опущен — см. AST-сигнатуры выше)",
+    CODE: includeCode ? code : "(code omitted — see AST signatures above)",
   };
 }

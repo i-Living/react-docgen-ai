@@ -1,5 +1,5 @@
 /**
- * @fileoverview Модуль для автоматического добавления комментариев в React код
+ * @fileoverview Module for automatically adding comments to React code
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -12,34 +12,34 @@ import { toCompactAst } from "./ast/compact-format.js";
 import { CliOptions } from "./types.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
-/** Режимы аннотирования */
+/** Annotation modes */
 type AnnotationMode = 'copy' | 'inplace';
 
 /**
- * Создаёт строгий промпт для повторных попыток аннотации.
- * Warnings добавляются к оригинальному промпту один раз, без накопления.
+ * Creates a strict prompt for annotation retry attempts.
+ * Warnings are appended to the original prompt once, without accumulation.
  */
 function makePromptStrict(originalPrompt: string, attemptNumber: number): string {
   const warnings = [
-    `=== ПОПЫТКА ${attemptNumber}/3 — СТРОГОЕ ПРЕДУПРЕЖДЕНИЕ ===`,
-    "НЕ ИЗМЕНЯЙ исходный код! НЕ СОКРАЩАЙ через (...)!",
-    "НЕ УДАЛЯЙ/ОБРЕЗАЙ части кода! ВЕРНИ ПОЛНЫЙ КОД с комментариями!",
-    "Запрещено: менять JSX/пропсы/состояние/импорты/экспорты, добавлять eslint-disable",
-    "Разрешено: только добавлять JSDoc /** */ перед функциями + @fileoverview",
-    "=== КОНЕЦ ПРЕДУПРЕЖДЕНИЯ ===\n",
+    `=== ATTEMPT ${attemptNumber}/3 — STRICT WARNING ===`,
+    "DO NOT change source code! DO NOT shorten with (...)!",
+    "DO NOT DELETE/TRIM code parts! RETURN FULL code with comments!",
+    "Forbidden: changing JSX/props/state/imports/exports, adding eslint-disable",
+    "Allowed: only adding JSDoc /** */ before functions + @fileoverview",
+    "=== END OF WARNING ===\n",
   ];
 
   return warnings.join("\n") + originalPrompt;
 }
 
 /**
- * Общая логика аннотирования React компонентов
- * @param opts - Опции командной строки
- * @param mode - Режим: 'copy' (в выходную папку) или 'inplace' (прямо в файлы)
+ * General annotation logic for React components
+ * @param opts - CLI options
+ * @param mode - Mode: 'copy' (to output folder) or 'inplace' (directly into files)
  */
 async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<void> {
   try {
-    // Применяем кастомную директорию промптов если указана
+    // Apply custom prompt directory if specified
     if (opts.promptDir) {
       setPromptDirectory(opts.promptDir);
     }
@@ -69,36 +69,36 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
     await processFilesConcurrent(files, async (file, index, total) => {
       const code: string = readFile(file);
 
-      // Пропускаем файлы с @fileoverview если не указан --force
+      // Skip files with @fileoverview unless --force is set
       if (!opts.force && hasFileoverview(code)) {
         return { file, success: true, skipped: true, skipReason: "has @fileoverview" };
       }
 
-      // Извлекаем структурную информацию через AST
+      // Extract structural info via AST
       const astInfo = extractComponentInfo(code);
 
-      // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+      // Skip files without useful content (barrel files, empty, re-exports only)
       if (astInfo.fileType === "skip") {
         return { file, success: true, skipped: true, skipReason: "no-content" };
       }
 
-      // Формируем детальный промпт для LLM
+      // Build detailed prompt for LLM
       const prompt = getAnnotationPrompt(astInfo, code);
 
-      // Генерируем код с проверкой изменений (максимум 3 попытки)
+      // Generate code with change checking (max 3 attempts)
       const MAX_ATTEMPTS = 3;
       let attempts = 0;
       let annotated: string | null = null;
 
       while (attempts < MAX_ATTEMPTS) {
         try {
-          // На 0-й попытке — оригинальный промпт, на последующих — строгий
+          // On 0th attempt — original prompt, subsequent — strict
           const currentPrompt = attempts === 0
             ? prompt
             : makePromptStrict(prompt, attempts + 1);
           const result: string = await callLlm(opts, currentPrompt);
 
-          // Проверяем, изменился ли код (игнорируя комментарии)
+          // Check if code changed (ignoring comments)
           if (!hasCodeChanges(code, result)) {
             annotated = result;
             break;
@@ -128,7 +128,7 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
         return { file, success: false, error: "Annotation returned null" };
       }
 
-      // Записываем результат
+      // Write result
       if (mode === 'copy') {
         const outPath = writeOutput(opts.out + "/annotated", file, annotated);
         return { file, success: true, outputPath: outPath };
@@ -144,14 +144,14 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
 }
 
 /**
- * Выполняет аннотирование проекта React компонентов в выходную директорию
+ * Annotates React project components to output directory
  */
 export async function annotateProject(opts: CliOptions): Promise<void> {
   return annotateFiles(opts, 'copy');
 }
 
 /**
- * Выполняет аннотирование файлов непосредственно в исходных файлах (in-place)
+ * Annotates files directly in source files (in-place)
  */
 export async function annotateInPlace(opts: CliOptions): Promise<void> {
   return annotateFiles(opts, 'inplace');

@@ -1,25 +1,25 @@
 /**
- * @fileoverview Клиент для взаимодействия с LLM API
+ * @fileoverview Client for LLM API interaction
  * @author AI Docgen
  * @version 1.0.0
  */
 
 import { LlmApiOptions } from "./types.js";
 
-/** Максимальное количество retry-попыток для HTTP ошибок */
+/** Maximum retry attempts for HTTP errors */
 const MAX_RETRIES = 3;
-/** Базовый интервал между retry (мс) */
+/** Base delay between retries (ms) */
 const BASE_DELAY = 1000;
 
 /**
- * Ждёт заданное количество миллисекунд.
+ * Waits for specified milliseconds.
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Выполняет retry асинхронной функции с exponential backoff.
+ * Retries an async function with exponential backoff.
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -44,13 +44,13 @@ async function withRetry<T>(
 }
 
 /**
- * Определяет, стоит ли retry для данного HTTP кода.
+ * Determines whether to retry for a given HTTP code.
  */
 function isRetryableError(error: unknown): boolean {
   const msg = (error as Error)?.message ?? String(error);
-  // Сетевые ошибки (ECONNREFUSED, ECONNRESET, ETIMEDOUT, fetch failures)
+  // Network errors (ECONNREFUSED, ECONNRESET, ETIMEDOUT, fetch failures)
   if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|fetch\s+fail/i.test(msg)) return true;
-  // 5xx — временные ошибки сервера
+  // 5xx — temporary server errors
   if (/5\d{2}/.test(msg)) return true;
   // 429 — rate limit
   if (/429/.test(msg)) return true;
@@ -58,25 +58,25 @@ function isRetryableError(error: unknown): boolean {
 }
 
 /**
- * Очищает ответ LLM от артефактов каналов и метаданных.
- * Channel-маркеры (`<|channel|>`, `<|message|>`) специфичны для
- * llama.cpp/server — очистка выполняется только при их наличии.
- * @param response - Сырой ответ от LLM API
- * @returns Очищенный текст без артефактов
+ * Cleans LLM response from channel artifacts and metadata.
+ * Channel markers (`<|channel|>`, `<|message|>`) are specific to
+ * llama.cpp/server — cleaning is only done when they are present.
+ * @param response - Raw response from LLM API
+ * @returns Cleaned text without artifacts
  */
 function cleanLLMResponse(response: string): string {
   let cleaned = response;
 
-  // Channel-маркеры — только для llama.cpp/server провайдера
+  // Channel markers — only for llama.cpp/server provider
   if (cleaned.includes("<|channel|>") || cleaned.includes("<|message|>")) {
-    // Сначала обрабатываем частичные канал блоки (текст между channel и message)
+    // First process partial channel blocks (text between channel and message)
     const partialMatch = cleaned.match(/<\|channel\|>(.*?)<\|message\|>(.*?)<\|end\|>/s);
     if (partialMatch) {
       const textBefore = partialMatch[1] || '';
       const textAfter = partialMatch[2] || '';
       cleaned = textBefore + textAfter;
     } else {
-      // Если нет частичных блоков, ищем полные канал блоки
+      // If no partial blocks, look for complete channel blocks
       const channelMatches = cleaned.match(/<\|channel\|>[^<]*<\|message\|>(.*?)<\|end\|>/gs);
       if (channelMatches) {
         const extractedContent = channelMatches.map(match => {
@@ -85,7 +85,7 @@ function cleanLLMResponse(response: string): string {
         }).join('');
         cleaned = extractedContent;
       } else {
-        // Ищем только message блоки без channel
+        // Look for message blocks only without channel
         const messageMatches = cleaned.match(/<\|message\|>(.*?)<\|end\|>/gs);
         if (messageMatches) {
           const extractedContent = messageMatches.map(match => {
@@ -97,40 +97,40 @@ function cleanLLMResponse(response: string): string {
       }
     }
 
-    // Удаляем остаточные канал маркеры
+    // Remove residual channel markers
     cleaned = cleaned.replace(/<\|channel\|>[^<]*<\|message\|>/g, '');
     cleaned = cleaned.replace(/<\|start\|><\|channel\|>[^<]*<\|message\|>/g, '');
     cleaned = cleaned.replace(/<\|end\|>/g, '');
     cleaned = cleaned.replace(/<\|start\|>/g, '');
   }
 
-  // Удаляем markdown блоки кода в начале
+  // Remove markdown code blocks at start
   cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/g, '');
   cleaned = cleaned.replace(/^```\n?/g, '');
 
-  // Удаляем markdown блоки кода в конце
+  // Remove markdown code blocks at end
   cleaned = cleaned.replace(/\n?```$/g, '');
 
-  // Удаляем лишние переносы строк в начале и конце
+  // Remove extra newlines at start and end
   cleaned = cleaned.trim();
 
-  // Удаляем дублированные переносы строк внутри текста
+  // Remove duplicated newlines within text
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
   return cleaned;
 }
 
 /**
- * Определяет, использовать ли chat completions формат по URL
+ * Determines whether to use chat completions format based on URL
  */
 function isChatApi(api: string): boolean {
   return api.includes('chat/completions') || api.includes('v1/chat/completions');
 }
 
 /**
- * Извлекает текст ответа из chat completions формата.
- * Не использует reasoning_content — это внутренние рассуждения модели,
- * не предназначенные для вывода.
+ * Extracts response text from chat completions format.
+ * Does not use reasoning_content — these are the model's internal thoughts,
+ * not meant for output.
  */
 function extractChatResponse(data: any): string {
   const msg = data.choices?.[0]?.message;
@@ -139,7 +139,7 @@ function extractChatResponse(data: any): string {
 }
 
 /**
- * Читает streaming-ответ от сервера и собирает полный текст.
+ * Reads streaming response from server and collects full text.
  */
 async function readStreamingResponse(response: Response, useChat: boolean): Promise<string> {
   const reader = response.body?.getReader();
@@ -158,9 +158,9 @@ async function readStreamingResponse(response: Response, useChat: boolean): Prom
 
       buffer += decoder.decode(value, { stream: true });
 
-      // SSE формат: data: {...}\n\n
+      // SSE format: data: {...}\n\n
       const lines = buffer.split("\n");
-      buffer = lines.pop() ?? ""; // последняя незавершённая часть
+      buffer = lines.pop() ?? ""; // last incomplete chunk
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -196,7 +196,7 @@ export async function callLLM(
   prompt: string, 
   options: LlmApiOptions = {}
 ): Promise<string> {
-  // Деструктурируем опции с значениями по умолчанию
+  // Destructure options with defaults
   const { 
     maxTokens = 4096, 
     temperature = 0.1,
@@ -204,10 +204,10 @@ export async function callLLM(
     model = "",
   } = options;
 
-  // Определяем формат API по URL
+  // Determine API format by URL
   const useChat = isChatApi(api);
 
-  // Формируем payload для отправки в API
+  // Build payload for API request
   const requestPayload: Record<string, unknown> = useChat
     ? {
         messages: [{ role: 'user' as const, content: prompt }],
@@ -222,25 +222,25 @@ export async function callLLM(
         stream,
       };
 
-  // Добавляем модель, если указана
+  // Add model if specified
   if (model) {
     requestPayload["model"] = model;
   }
 
-  // Отключаем reasoning для thinking-моделей (DeepSeek, GLM) через OpenCode Go relay
+  // Disable reasoning for thinking models (DeepSeek, GLM) via OpenCode Go relay
   if (api.includes("opencode.ai")) {
     requestPayload["thinking"] = { type: "disabled" };
   }
 
   return withRetry(async () => {
-    // Передаём API-ключ если задан (для облачных провайдеров)
+    // Pass API key if set (for cloud providers)
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const apiKey = process.env.LLM_API_KEY || '';
     if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
-    // Выполняем POST запрос к LLM API через fetch
+    // Execute POST request to LLM API via fetch
     const response = await fetch(api, {
       method: 'POST',
       headers,
@@ -263,7 +263,7 @@ export async function callLLM(
         : data.text || data.choices?.[0]?.text || '';
     }
 
-    // Очищаем ответ от артефактов каналов и метаданных
+    // Clean response from channel artifacts and metadata
     result = cleanLLMResponse(result);
     
     return result;

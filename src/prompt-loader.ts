@@ -1,5 +1,5 @@
 /**
- * @fileoverview Модуль для загрузки и обработки промптов LLM
+ * @fileoverview Module for loading and processing LLM prompts
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -12,35 +12,35 @@ import { buildPromptPayload, toCompactAst } from "./ast/compact-format.js";
 let _promptDirOverride: string | null = null;
 
 /**
- * Устанавливает кастомную директорию промптов (из --prompt-dir).
+ * Sets custom prompt directory (from --prompt-dir).
  */
 export function setPromptDirectory(dir: string): void {
   _promptDirOverride = dir;
 }
 
 /**
- * Сбрасывает кастомную директорию промптов.
+ * Resets custom prompt directory.
  */
 export function resetPromptDirectory(): void {
   _promptDirOverride = null;
 }
 
-// Получаем базовую директорию для промптов
+// Get base prompt directory
 const getPromptsDirectory = (): string => {
-  // 1. Если задана кастомная директория через --prompt-dir
+  // 1. If custom directory is set via --prompt-dir
   if (_promptDirOverride && fs.existsSync(_promptDirOverride)) {
     return _promptDirOverride;
   }
 
-  // Проверяем несколько возможных путей в порядке приоритета
+  // Check multiple possible paths in priority order
   const possiblePaths = [
-    // 2. Относительно исходного кода (для разработки и тестов)
+    // 2. Relative to source code (for development and testing)
     path.join(process.cwd(), 'src', 'prompts'),
-    // 3. Относительно скомпилированного кода (для production)
+    // 3. Relative to compiled code (for production)
     path.join(process.cwd(), 'dist', 'prompts')
   ];
 
-  // Дополнительно проверяем пути относительно текущего модуля (если доступно)
+  // Also check paths relative to current module (if available)
   try {
     const currentDir = __dirname;
     const moduleBasedPaths = [
@@ -52,38 +52,38 @@ const getPromptsDirectory = (): string => {
     
     possiblePaths.push(...moduleBasedPaths);
   } catch (error) {
-    // Игнорируем ошибки с __dirname
+    // Ignore __dirname errors
   }
   
-  // Находим первый существующий путь
+  // Find first existing path
   for (const testPath of possiblePaths) {
     if (fs.existsSync(testPath)) {
       return testPath;
     }
   }
   
-  // Если ничего не найдено, возвращаем стандартный путь
+  // If nothing found, return default path
   return path.join(process.cwd(), 'src', 'prompts');
 };
 
 /**
- * Загружает промпт из файла и заменяет плейсхолдеры
- * @param promptName - Имя файла промпта (без расширения)
- * @param replacements - Объект с заменами плейсхолдеров
- * @returns Готовый промпт с подставленными значениями
+ * Loads prompt from file and replaces placeholders
+ * @param promptName - Prompt file name (without extension)
+ * @param replacements - Object with placeholder replacements
+ * @returns Complete prompt with substituted values
  */
 export function loadPrompt(promptName: string, replacements: Record<string, string>): string {
   const promptPath = path.join(getPromptsDirectory(), `${promptName}.txt`);
   
   if (!fs.existsSync(promptPath)) {
-    throw new Error(`Промпт не найден: ${promptPath}`);
+    throw new Error(`Prompt not found: ${promptPath}`);
   }
   
   let prompt = fs.readFileSync(promptPath, "utf8");
   
-  // Заменяем все плейсхолдеры вида {{KEY}} на значения
+  // Replace all {{KEY}} placeholders with values
   for (const [key, value] of Object.entries(replacements)) {
-    // Заменяем простой строкой для избежания проблем с регулярными выражениями
+    // Replace with simple string to avoid regex issues
     const placeholder = `{{${key}}}`;
     prompt = prompt.split(placeholder).join(value);
   }
@@ -92,12 +92,12 @@ export function loadPrompt(promptName: string, replacements: Record<string, stri
 }
 
 /**
- * Загружает промпт для аннотирования.
- * Использует компактный AST-формат вместо JSON (экономия токенов).
- * Внимание: для аннотирования код всегда передаётся полностью.
- * @param astInfo - Информация о компоненте из AST
- * @param code - Исходный код компонента
- * @returns Готовый промпт для аннотирования
+ * Loads prompt for annotation.
+ * Uses compact AST format instead of JSON (saves tokens).
+ * Note: for annotation, code is always passed in full.
+ * @param astInfo - Component information from AST
+ * @param code - Component source code
+ * @returns Complete prompt for annotation
  */
 export function getAnnotationPrompt(astInfo: any, code: string): string {
   const compactAst = toCompactAst(astInfo);
@@ -108,8 +108,8 @@ export function getAnnotationPrompt(astInfo: any, code: string): string {
 }
 
 /**
- * Маппинг FileType → имя файла промпта.
- * Если тип неизвестен — fallback на component.
+ * FileType → prompt file name mapping.
+ * If type is unknown — fallback to component.
  */
 const PROMPT_BY_TYPE: Record<FileType, string> = {
   component: "component",
@@ -118,16 +118,16 @@ const PROMPT_BY_TYPE: Record<FileType, string> = {
   store: "store",
   util: "util",
   types: "types",
-  skip: "component", // не используется (skip-файлы отфильтрованы ранее)
+  skip: "component", // unused (skip files filtered earlier)
 };
 
 /**
- * Загружает тип-специфичный промпт для генерации документации.
- * Выбирает файл промпта на основе astInfo.fileType.
- * Использует компактный AST-формат вместо JSON + авто-режим для кода.
- * @param astInfo - Информация о компоненте из AST (с полем fileType)
- * @param code - Исходный код компонента
- * @returns Готовый промпт с подставленными значениями
+ * Loads type-specific prompt for documentation generation.
+ * Selects prompt file based on astInfo.fileType.
+ * Uses compact AST format instead of JSON + auto-mode for code.
+ * @param astInfo - Component information from AST (with fileType field)
+ * @param code - Component source code
+ * @returns Complete prompt with substituted values
  */
 export function getDocumentationPrompt(astInfo: any, code: string): string {
   const fileType: FileType = astInfo.fileType ?? "component";

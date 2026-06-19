@@ -1,14 +1,14 @@
 /**
- * @fileoverview Загрузка .env и типизированные хелперы чтения переменных окружения
+ * @fileoverview .env loading and typed helpers for reading environment variables
  */
 
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 
-/** Загружает .env из корня проекта (рядом с package.json) */
+/** Loads .env from project root (next to package.json) */
 function loadEnv(): void {
-  // Ищем .env в директории проекта (поднимаемся от dist/ если запущено после сборки)
+  // Look for .env in project directory (climb from dist/ if running after build)
   const searchPaths = [
     path.resolve(process.cwd(), ".env"),
     path.resolve(__dirname, "..", ".env"),
@@ -27,8 +27,8 @@ function loadEnv(): void {
 let loaded = false;
 
 /**
- * Читает строковое значение из process.env.
- * Возвращает fallback, если переменная не задана или пуста.
+ * Reads a string value from process.env.
+ * Returns fallback if variable is not set or empty.
  */
 export function readEnv(key: string, fallback: string): string {
   if (!loaded) {
@@ -40,8 +40,8 @@ export function readEnv(key: string, fallback: string): string {
 }
 
 /**
- * Читает целочисленное значение из process.env.
- * Возвращает fallback, если переменная не задана или не является числом.
+ * Reads an integer value from process.env.
+ * Returns fallback if variable is not set or is not a number.
  */
 export function readEnvInt(key: string, fallback: number): number {
   const val = readEnv(key, String(fallback));
@@ -50,8 +50,8 @@ export function readEnvInt(key: string, fallback: number): number {
 }
 
 /**
- * Читает число с плавающей точкой из process.env.
- * Возвращает fallback, если переменная не задана или не является числом.
+ * Reads a float value from process.env.
+ * Returns fallback if variable is not set or is not a number.
  */
 export function readEnvFloat(key: string, fallback: number): number {
   const val = readEnv(key, String(fallback));

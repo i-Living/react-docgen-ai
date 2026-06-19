@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля component-graph
+ * @fileoverview Tests for component-graph module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -291,7 +291,7 @@ describe('Component Graph', () => {
     it('should handle empty graph', () => {
       const graph = {};
       const result = graphToDot(graph);
-      expect(result).toBe('digraph Components {\n  // Настройки отображения графа\n  node [shape=box, style=filled, fillcolor=lightblue];\n  edge [color=gray];\n\n}\n');
+      expect(result).toBe('digraph Components {\n  // Graph display settings\n  node [shape=box, style=filled, fillcolor=lightblue];\n  edge [color=gray];\n\n}\n');
     });
 
     it('should escape special characters in file names', () => {
@@ -328,8 +328,8 @@ describe('Component Graph', () => {
       const result = graphToMarkdown(graph);
       expect(result).toContain('# Component Tree');
       expect(result).toContain('## App');
-      expect(result).toContain('**Файл:** `src/App.tsx`');
-      expect(result).toContain('**Дочерние компоненты:**');
+      expect(result).toContain('**File:** `src/App.tsx`');
+      expect(result).toContain('**Children:**');
       expect(result).toContain('- Header');
       expect(result).toContain('- Button');
       expect(result).toContain('---');
@@ -345,13 +345,13 @@ describe('Component Graph', () => {
 
       const result = graphToMarkdown(graph);
       expect(result).toContain('## Button');
-      expect(result).toContain('**Дочерние компоненты:** ➡️ Нет');
+      expect(result).toContain('**Children:** ➡️ None');
     });
 
     it('should handle empty graph', () => {
       const graph = {};
       const result = graphToMarkdown(graph);
-      expect(result).toBe('# Component Tree\n\nИерархия React компонентов проекта.\n\n');
+      expect(result).toBe('# Component Tree\n\nReact Component Hierarchy.\n\n');
     });
 
     it('should format multiple components correctly', () => {
@@ -375,7 +375,7 @@ describe('Component Graph', () => {
       expect(result).toContain('## Header');
       expect(result).toContain('## Logo');
       expect(result).toContain('---');
-      expect(result).toContain('**Дочерние компоненты:**');
+      expect(result).toContain('**Children:**');
       expect(result).toContain('- Logo');
       expect(result).toContain('- Navigation');
     });

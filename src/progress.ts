@@ -1,15 +1,15 @@
 /**
- * @fileoverview Простой прогресс-бар для CLI
+ * @fileoverview Simple progress bar for CLI
  */
 
-/** Ширина прогресс-бара в символах */
+/** Progress bar width in characters */
 const BAR_WIDTH = 30;
 
 /**
- * Рисует прогресс-бар в терминале (одна строка, перезаписывается).
- * @param current - Текущее количество обработанных
- * @param total - Общее количество
- * @param label - Текстовая метка (опционально)
+ * Draws progress bar in terminal (single line, overwritten).
+ * @param current - Current processed count
+ * @param total - Total count
+ * @param label - Text label (optional)
  */
 export function renderProgress(current: number, total: number, label?: string): void {
   const percent = total > 0 ? Math.round((current / total) * 100) : 0;
@@ -25,7 +25,7 @@ export function renderProgress(current: number, total: number, label?: string): 
 }
 
 /**
- * Завершает строку прогресс-бара (переводит на новую строку).
+ * Finalizes progress bar line (moves to new line).
  */
 export function finalizeProgress(): void {
   process.stdout.write("\n");

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Экстрактор информации о React компонентах из AST
+ * @fileoverview AST-based extractor of React component information
  * @author AI Docgen  
  * @version 1.0.0
  */
@@ -11,18 +11,18 @@ import * as t from "@babel/types";
 import { ComponentInfo, FileType } from "../types.js";
 
 /**
- * Извлекает структурную информацию о React компоненте из исходного кода
- * @param code - Исходный код React компонента
- * @returns Объект с информацией о компоненте
+ * Extracts structural information about a React component from source code
+ * @param code - Source code of React component
+ * @returns Object with component information
  */
 export function extractComponentInfo(code: string): ComponentInfo {
-  // Парсим код в AST с поддержкой JSX и TypeScript
+  // Parse code into AST with JSX and TypeScript support
   const ast = parse(code, {
     sourceType: "module" as const,
     plugins: ["jsx", "typescript"]
   });
 
-  // Инициализируем структуру для хранения информации о компоненте
+  // Initialize structure for storing component info
   const info: ComponentInfo = {
     name: null,
     props: [],
@@ -37,35 +37,35 @@ export function extractComponentInfo(code: string): ComponentInfo {
   };
   const traverse = typeof _traverse === "function" ? _traverse : ((_traverse as any).default as typeof _traverse)
 
-  // Обходим AST дерево для извлечения информации
+  // Traverse AST tree to extract information
   traverse(ast, {
-    // Проверяем экспорт по умолчанию
+    // Check default export
     ExportDefaultDeclaration(path: NodePath<t.ExportDefaultDeclaration>) {
       info.exportsComponent = true;
       
-      // Если экспортируется декларация функции
+      // If a function declaration is exported
       if (t.isFunctionDeclaration(path.node.declaration) && path.node.declaration.id) {
         info.name = path.node.declaration.id.name;
       }
     },
 
-    // Извлекаем имя функции-компонента
+    // Extract function-component name
     FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
       if (path.node.id) {
         const funcName = path.node.id.name;
         
-        // Если имя начинается с "use" — это React хук
+        // If name starts with "use" — it is a React hook
         if (funcName.startsWith("use")) {
           if (!info.name) {
             info.name = funcName;
           }
         } else if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
-          // Если имя начинается с заглавной буквы, это компонент
+          // If name starts with uppercase, it is a component
           if (!info.name) {
             info.name = funcName;
           }
         } else {
-          // Это обработчик события
+          // This is an event handler
           info.handlers.push({
             name: funcName
           });
@@ -73,7 +73,7 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
-    // Обрабатываем переменные с функциями (стрелочные и обычные)
+    // Process variables with functions (arrow and regular)
     VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
       if (
         path.node.init &&
@@ -83,18 +83,18 @@ export function extractComponentInfo(code: string): ComponentInfo {
         if (t.isIdentifier(path.node.id)) {
           const funcName = path.node.id.name;
           
-          // Если имя начинается с "use" — это React хук
+          // If name starts with "use" — it is a React hook
           if (funcName.startsWith("use")) {
             if (!info.name) {
               info.name = funcName;
             }
           } else if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
-            // Если имя начинается с заглавной буквы, это компонент
+            // If name starts with uppercase, it is a component
             if (!info.name) {
               info.name = funcName;
             }
           } else {
-            // Это обработчик события
+            // This is an event handler
             info.handlers.push({
               name: funcName
             });
@@ -103,39 +103,39 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
-    // Анализируем JSX элементы
+    // Analyze JSX elements
     JSXElement(path: NodePath<t.JSXElement>) {
       const opening = path.node.openingElement;
       
-      // Извлекаем имя компонента из opening tag
+      // Extract component name from opening tag
       if (t.isJSXIdentifier(opening.name)) {
         info.jsxTree.push(opening.name.name);
       }
     },
 
-    // Извлекаем TypeScript интерфейсы для пропсов
+    // Extract TypeScript interfaces for props
     TSInterfaceDeclaration(path: NodePath<t.TSInterfaceDeclaration>) {
       const interfaceName = path.node.id.name;
       
-      // Ищем интерфейсы, которые могут быть пропсами компонента
+      // Look for interfaces that might be component props
       if (interfaceName.endsWith('Props') || interfaceName === 'Props') {
-        // Извлекаем свойства интерфейса
+        // Extract interface properties
         for (const property of path.node.body.body) {
           if (t.isTSPropertySignature(property) && t.isIdentifier(property.key)) {
             const propName = property.key.name;
             let propType = 'any';
             
-            // Извлекаем тип свойства
+            // Extract property type
             if (property.typeAnnotation && t.isTSTypeAnnotation(property.typeAnnotation)) {
               propType = extractTypeString(property.typeAnnotation.typeAnnotation);
             }
             
-            // Извлекаем значение по умолчанию (если есть)
+            // Extract default value (if present)
             let defaultValue = undefined;
             if (property.typeAnnotation && t.isTSTypeAnnotation(property.typeAnnotation)) {
               const tsType = property.typeAnnotation.typeAnnotation;
               if (t.isTSUnionType(tsType)) {
-                // Проверяем литеральные типы для значений по умолчанию
+                // Check literal types for default values
                 for (const type of tsType.types) {
                   if (t.isTSLiteralType(type) && t.isStringLiteral(type.literal)) {
                     defaultValue = type.literal.value;
@@ -164,19 +164,19 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
-    // Обрабатываем React хуки и вспомогательные вызовы
+    // Process React hooks and helper calls
     CallExpression(path: NodePath<t.CallExpression>) {
-      // Проверяем вызовы функций по имени
+      // Check function calls by name
       if (t.isIdentifier(path.node.callee)) {
         const calleeName = path.node.callee.name;
 
-        // Обработка useState хуков
+        // Processing useState hooks
         if (calleeName === "useState") {
-          // Ищем переменную дескриптор с деструктуризацией в родительских узлах
+          // Look for variable declarator with destructuring in parent nodes
           let variablePath = path.findParent((p) => t.isVariableDeclarator(p.node));
           
           if (variablePath && t.isVariableDeclarator(variablePath.node)) {
-            // Извлекаем имя переменной состояния из деструктуризации
+            // Extract state variable name from destructuring
             const variableName = extractVariableName(variablePath.node.id);
             info.state.push({
               variable: variableName || "state"
@@ -184,26 +184,26 @@ export function extractComponentInfo(code: string): ComponentInfo {
           }
         }
 
-        // Обработка useEffect хуков
+        // Processing useEffect hooks
         if (calleeName === "useEffect") {
-          // Извлекаем зависимости из второго аргумента
+          // Extract dependencies from second argument
           const deps = extractDependencies(path.node.arguments[1]);
           info.effects.push({
             deps: deps
           });
         }
 
-        // Обработка createContext (React Context)
+        // Processing createContext (React Context)
         if (calleeName === "createContext") {
           info.hasContext = true;
         }
 
-        // Обработка state management: Zustand (create), Jotai (atom), Redux (createSlice)
+        // Processing state management: Zustand (create), Jotai (atom), Redux (createSlice)
         if (calleeName === "create" || calleeName === "atom" || calleeName === "createSlice") {
           info.hasStore = true;
         }
 
-        // Обработка React.memo/forwardRef (извлекаем имя из аргумента функции)
+        // Processing React.memo/forwardRef (extract name from function argument)
         if (calleeName === "memo" || calleeName === "forwardRef") {
           const innerFn = path.node.arguments[0];
           if (innerFn && t.isFunction(innerFn) && (innerFn as any).id?.name) {
@@ -215,7 +215,7 @@ export function extractComponentInfo(code: string): ComponentInfo {
         }
       }
 
-      // Обработка React.memo и forwardRef через MemberExpression (React.memo(...))
+      // Processing React.memo and forwardRef via MemberExpression (React.memo(...))
       if (t.isMemberExpression(path.node.callee) && 
           t.isIdentifier(path.node.callee.property) &&
           (path.node.callee.property.name === "memo" || path.node.callee.property.name === "forwardRef") &&
@@ -232,58 +232,58 @@ export function extractComponentInfo(code: string): ComponentInfo {
     }
   });
 
-  // Классифицируем файл на основе извлечённых данных
+  // Classify file based on extracted data
   info.fileType = classifyFile(info);
 
   return info;
 }
 
 /**
- * Определяет тип файла на основе извлечённой AST-информации.
- * Порядок проверки имеет значение — более специфичные типы проверяются первыми.
+ * Determines file type based on extracted AST information.
+ * Check order matters — more specific types are checked first.
  */
 function classifyFile(info: ComponentInfo): FileType {
-  // Component: есть JSX и экспорт
+  // Component: has JSX and export
   if (info.jsxTree.length > 0 && info.exportsComponent) return "component";
 
-  // Hook: имя начинается с "use" и есть hooks (state/effects)
+  // Hook: name starts with "use" and has hooks (state/effects)
   if (info.name && info.name.startsWith("use") && (info.state.length > 0 || info.effects.length > 0)) {
     return "hook";
   }
-  // Hook без состояния: имя начинается с "use" и экспортируется
+  // Hook without state: name starts with "use" and is exported
   if (info.name && info.name.startsWith("use") && info.exportsComponent) {
     return "hook";
   }
 
-  // Store: обнаружен state management (Zustand/Jotai/Redux)
+  // Store: found state management (Zustand/Jotai/Redux)
   if (info.hasStore) return "store";
 
-  // Context: обнаружен createContext
+  // Context: found createContext
   if (info.hasContext) return "context";
 
-  // Types: есть props-интерфейсы, но нет функций и JSX
+  // Types: has prop interfaces but no functions or JSX
   if (info.props.length > 0 && !info.name && info.handlers.length === 0 && info.jsxTree.length === 0) {
     return "types";
   }
 
-  // Util: есть функции (name или handlers), но нет JSX
+  // Util: has functions (name or handlers) but no JSX
   if ((info.name || info.handlers.length > 0) && info.jsxTree.length === 0) {
     return "util";
   }
 
-  // Skip: ничего полезного (barrel files, пустые файлы, re-exports only)
+  // Skip: nothing useful (barrel files, empty files, re-exports only)
   return "skip";
 }
 
 /**
- * Извлекает имя переменной из узла AST
- * @param node - Узел AST
- * @returns Имя переменной или null
+ * Extracts variable name from an AST node
+ * @param node - AST node
+ * @returns Variable name or null
  */
 function extractVariableName(node: t.Node | null): string | null {
   if (!node) return null;
   
-  // Проверяем деструктуризацию массива
+  // Check array destructuring
   if (t.isArrayPattern(node)) {
     const firstElement = node.elements[0];
     if (t.isIdentifier(firstElement)) {
@@ -295,9 +295,9 @@ function extractVariableName(node: t.Node | null): string | null {
 }
 
 /**
- * Извлекает массив зависимостей из узла AST
- * @param node - Узел AST с массивом зависимостей
- * @returns Массив имен зависимостей
+ * Extracts dependency array from an AST node
+ * @param node - AST node with dependency array
+ * @returns Array of dependency names
  */
 function extractDependencies(node: t.Node | undefined): string[] {
   if (!node || !t.isArrayExpression(node)) {
@@ -311,17 +311,17 @@ function extractDependencies(node: t.Node | undefined): string[] {
 }
 
 /**
- * Извлекает имя зависимости из выражения
- * @param node - Узел AST с выражением зависимости
- * @returns Строка с именем зависимости
+ * Extracts dependency name from an expression
+ * @param node - AST node with dependency expression
+ * @returns String with dependency name
  */
 function extractDependencyName(node: t.Expression): string | null {
-  // Простой идентификатор
+  // Simple identifier
   if (t.isIdentifier(node)) {
     return node.name;
   }
   
-  // Выражение доступа к свойству (например, data.length)
+  // Property access expression (e.g., data.length)
   if (t.isMemberExpression(node)) {
     const parts: string[] = [];
     let current: t.Expression = node;
@@ -340,17 +340,17 @@ function extractDependencyName(node: t.Expression): string | null {
     return parts.join('.');
   }
   
-  // Другие типы выражений
+  // Other expression types
   return null;
 }
 
 /**
- * Извлекает строку типов из узла AST TypeScript
- * @param node - Узел AST с TypeScript типом
- * @returns Строка с типом
+ * Extracts type string from a TypeScript AST node
+ * @param node - AST node with TypeScript type
+ * @returns Type string
  */
 function extractTypeString(node: t.TSType): string {
-  // Примитивные типы
+  // Primitive types
   if (t.isTSStringKeyword(node)) return 'string';
   if (t.isTSNumberKeyword(node)) return 'number';
   if (t.isTSBooleanKeyword(node)) return 'boolean';
@@ -359,29 +359,29 @@ function extractTypeString(node: t.TSType): string {
   if (t.isTSNullKeyword(node)) return 'null';
   if (t.isTSUndefinedKeyword(node)) return 'undefined';
   
-  // Типы объединения
+  // Union types
   if (t.isTSUnionType(node)) {
     return node.types.map(type => extractTypeString(type)).join(' | ');
   }
   
-  // Типы массива
+  // Array types
   if (t.isTSArrayType(node)) {
     return `${extractTypeString(node.elementType)}[]`;
   }
   
-  // Функциональные типы
+  // Function types
   if (t.isTSFunctionType(node)) {
     return 'function';
   }
   
-  // Обобщенные типы
+  // Generic types
   if (t.isTSTypeReference(node)) {
     if (t.isIdentifier(node.typeName)) {
       return node.typeName.name;
     }
   }
   
-  // Литеральные типы
+  // Literal types
   if (t.isTSLiteralType(node)) {
     if (t.isStringLiteral(node.literal)) {
       return `"${node.literal.value}"`;

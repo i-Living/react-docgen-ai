@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля annotator
+ * @fileoverview Tests for annotator module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -82,7 +82,7 @@ describe('Annotator', () => {
 export default Button;`;
 
   const annotatedCode = `/**
- * @fileoverview Компонент кнопки
+ * @fileoverview Button component
  */
 function Button({ text, onClick }) {
   return <button onClick={onClick}>{text}</button>;
@@ -293,7 +293,7 @@ export default Button;`;
 export default Button;`;
 
     const inPlaceAnnotated = `/**
- * @fileoverview Кнопка компонент
+ * @fileoverview Button component
  */
 function Button({ text }) {
   return <button>{text}</button>;

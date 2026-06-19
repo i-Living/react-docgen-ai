@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля file-utils
+ * @fileoverview Tests for file-utils module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -98,7 +98,7 @@ export default function Test() { return <div>Test</div>; }`;
 });
 
 describe('File Utils — integration (temp files)', () => {
-  // Создаём временные файлы для настоящего fs
+  // Create temp files for real fs
   const dir = path.join(TMP, 'file-utils-test');
   const srcFile = path.join(dir, 'source.ts');
   const outDir = path.join(dir, 'output');
@@ -108,7 +108,7 @@ describe('File Utils — integration (temp files)', () => {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(srcFile, content, 'utf-8');
     fs.writeFileSync(path.join(dir, 'test.txt'), 'text content', 'utf-8');
-    // Поддиректория с расширениями для getFiles
+    // Subdirectory with extensions for getFiles
     const srcDir = path.join(dir, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(path.join(srcDir, 'comp.tsx'), '', 'utf-8');

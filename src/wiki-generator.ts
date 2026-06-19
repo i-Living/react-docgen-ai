@@ -1,9 +1,9 @@
 /**
- * @fileoverview Генератор LLM Wiki — Obsidian-совместимая документация в стиле Карпати
+ * @fileoverview LLM Wiki Generator — Obsidian-compatible documentation (Karpathy-style)
  *
- * Создаёт персистентную wiki с entity-страницами для React компонентов,
- * index.md для навигации, log.md для истории изменений и [[wikilinks]] 
- * для связей между компонентами.
+ * Creates a persistent wiki with entity pages for React components,
+ * index.md for navigation, log.md for change history, and [[wikilinks]] 
+ * for cross-component links.
  */
 
 import fs from "fs";
@@ -16,14 +16,14 @@ import { ComponentGraph } from "./types.js";
 import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
-/** Имя файла индекса */
+/** Index file name */
 const INDEX_FILE = "index.md";
-/** Имя файла лога */
+/** Log file name */
 const LOG_FILE = "log.md";
-/** Директория для страниц компонентов */
+/** Directory for component pages */
 const ENTITIES_DIR = "entities";
 
-/** Frontmatter для wiki-страницы компонента */
+/** Frontmatter for wiki component page */
 interface WikiFrontmatter {
   title: string;
   created: string;
@@ -36,7 +36,7 @@ interface WikiFrontmatter {
 }
 
 /**
- * Генерирует YAML frontmatter из объекта.
+ * Generates YAML frontmatter from object.
  */
 function toFrontmatter(fm: WikiFrontmatter): string {
   const tags = fm.tags.map((t) => `  - ${t}`).join("\n");
@@ -44,27 +44,27 @@ function toFrontmatter(fm: WikiFrontmatter): string {
 }
 
 /**
- * Извлекает тело wiki-страницы (без YAML frontmatter).
- * Строго определяет frontmatter: начинается с `---` на первой строке,
- * заканчивается следующим `---` на отдельной строке.
- * Используется при hash-match для переиспользования существующей документации.
+ * Extracts wiki page body (without YAML frontmatter).
+ * Strictly detects frontmatter: starts with `---` on first line,
+ * ends with the next `---` on its own line.
+ * Used during hash-match to reuse existing documentation.
  */
 function extractWikiBody(content: string): string {
   const lines = content.split("\n");
-  // Frontmatter должен начинаться с --- на первой строке
+  // Frontmatter must start with --- on first line
   if (lines[0]?.trim() !== "---") return content;
-  // Ищем закрывающий --- (строка, состоящая только из ---)
+  // Look for closing --- (line consisting only of ---)
   for (let i = 1; i < lines.length; i++) {
     if (lines[i]?.trim() === "---") {
       return lines.slice(i + 1).join("\n").trim();
     }
   }
-  // Нет закрывающего --- — возвращаем как есть
+  // No closing --- — return as is
   return content;
 }
 
 /**
- * Нормализует имя файла: kebab-case, без спецсимволов.
+ * Normalizes file name: kebab-case, no special characters.
  */
 function slugify(name: string): string {
   return name
@@ -75,14 +75,14 @@ function slugify(name: string): string {
 }
 
 /**
- * Возвращает сегодняшнюю дату в формате YYYY-MM-DD.
+ * Returns today's date in YYYY-MM-DD format.
  */
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 /**
- * Строит wiki-содержимое для компонента.
+ * Builds wiki content for a component.
  */
 function buildWikiContent(
   docMd: string,
@@ -93,7 +93,7 @@ function buildWikiContent(
 ): string {
   const header = toFrontmatter(fm);
 
-  // Секция связей
+  // Links section
   const links: string[] = [];
   if (parentNames.length > 0) {
     links.push("## Used in\n");
@@ -110,15 +110,15 @@ function buildWikiContent(
     links.push("");
   }
 
-  // Основное содержимое: убираем заголовок H1 из LLM-документации
-  // и заменяем на относительный путь к исходнику
+  // Main content: remove H1 header from LLM documentation
+  // and replace with relative path to source
   const body = docMd.replace(/^#\s+.+$/m, "").trim();
 
   return `${header}\n\n# ${componentName}\n\n> Source: \`${fm.source}\`\n\n${links.join("\n")}\n${body}\n`;
 }
 
 /**
- * Вычисляет confidence на основе количества exports и JSX-элементов.
+ * Calculates confidence based on export count and JSX elements.
  */
 function estimateConfidence(info: ComponentInfo): WikiFrontmatter["confidence"] {
   if (info.exportsComponent && info.jsxTree.length > 2) return "high";
@@ -126,7 +126,7 @@ function estimateConfidence(info: ComponentInfo): WikiFrontmatter["confidence"] 
   return "low";
 }
 
-/** Данные файла, собранные для wiki-генерации */
+/** File data collected for wiki generation */
 type FileData = {
   file: string;
   code: string;
@@ -138,8 +138,8 @@ type FileData = {
 };
 
 /**
- * Строит граф компонентов напрямую из уже извлечённых FileData.
- * Избегает повторного парсинга AST — использует astInfo.jsxTree.
+ * Builds component graph directly from extracted FileData.
+ * Avoids re-parsing AST — uses astInfo.jsxTree.
  */
 function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
   const graph: ComponentGraph = {};
@@ -157,9 +157,9 @@ function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
 // ── Persistent state tracking ──────────────────────────────────────────────
 
 /**
- * Читает список существующих страниц из entities/ директории.
- * Более надёжно, чем парсинг [[wikilinks]] из index.md —
- * не захватывает ложные ссылки из summary-текста.
+ * Reads list of existing pages from entities/ directory.
+ * More reliable than parsing [[wikilinks]] from index.md —
+ * does not capture false links from summary text.
  */
 function readExistingPages(wikiDir: string): Set<string> {
   const entitiesDir = path.join(wikiDir, ENTITIES_DIR);
@@ -169,8 +169,8 @@ function readExistingPages(wikiDir: string): Set<string> {
   const files = fs.readdirSync(entitiesDir);
   for (const file of files) {
     if (file.endsWith(".md")) {
-      // Имя страницы = имя файла без расширения (slug → оригинальное имя не восстанавливается,
-      // но для сравнения с currentPages используем componentName, который тоже slugify'ится)
+      // Page name = file name without extension (slug → original name is lost,
+      // but for comparison with currentPages use componentName, which is also slugified)
       const pageName = file.replace(/\.md$/, "");
       existing.add(pageName);
     }
@@ -179,7 +179,7 @@ function readExistingPages(wikiDir: string): Set<string> {
 }
 
 /**
- * Генерирует index.md.
+ * Generates index.md.
  */
 function buildIndex(
   pages: Array<{ name: string; summary: string; file: string }>,
@@ -192,7 +192,7 @@ function buildIndex(
     "## Entities\n",
   ];
 
-  // Сортируем по имени
+  // Sort by name
   const sorted = [...pages].sort((a, b) => a.name.localeCompare(b.name));
   for (const p of sorted) {
     const summary = p.summary ? ` — ${p.summary}` : "";
@@ -204,7 +204,7 @@ function buildIndex(
 }
 
 /**
- * Обновляет log.md — добавляет запись о текущем запуске.
+ * Updates log.md — adds entry for the current run.
  */
 function updateLog(wikiDir: string, created: string[], updated: string[], archived: string[]): void {
   const logFile = path.join(wikiDir, LOG_FILE);
@@ -225,10 +225,10 @@ function updateLog(wikiDir: string, created: string[], updated: string[], archiv
 
   const entry = `## [${date}] wiki-update | ${created.length + updated.length} files processed\n${entries.join("\n")}\n`;
   
-  // Ищем, есть ли уже запись за сегодня
+  // Check if there's already an entry for today
   const todayMark = `## [${date}]`;
   if (existing.includes(todayMark)) {
-    // Заменяем последнюю запись за сегодня
+    // Replace the latest entry for today
     const lines = existing.split("\n");
     const todayIdx = lines.slice().reverse().findIndex((l: string) => l.startsWith(todayMark));
     if (todayIdx >= 0) {
@@ -239,7 +239,7 @@ function updateLog(wikiDir: string, created: string[], updated: string[], archiv
     }
   }
 
-  // Инициализация или добавление
+  // Initialization or append
   if (!existing.trim()) {
     fs.writeFileSync(logFile, `# Wiki Log\n\n> Documentation change history.\n\n${entry}`);
   } else {
@@ -250,18 +250,18 @@ function updateLog(wikiDir: string, created: string[], updated: string[], archiv
 // ── Main entry point ───────────────────────────────────────────────────────
 
 /**
- * Генерирует LLM Wiki для React компонентов проекта.
+ * Generates LLM Wiki for React project components.
  *
- * @param opts - Опции CLI
- * @param wikiDir - Директория wiki (из --wiki)
+ * @param opts - CLI options
+ * @param wikiDir - Wiki directory (from --wiki)
  */
 export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<void> {
-  // Применяем кастомную директорию промптов если указана
+  // Apply custom prompt directory if specified
   if (opts.promptDir) {
     setPromptDirectory(opts.promptDir);
   }
 
-  // Создаём структуру wiki
+  // Create wiki directory structure
   const entitiesDir = path.join(wikiDir, ENTITIES_DIR);
   fs.mkdirSync(entitiesDir, { recursive: true });
 
@@ -273,43 +273,43 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     return;
   }
 
-  // === Шаг 1: Получаем документацию от LLM (параллельно) ===
+  // === Step 1: Get documentation from LLM (parallel) ===
   if (!opts.quiet) console.log(`\n📖 Wiki generation: ${total} files`);
 
-  // Собираем данные: для каждого файла — код, AST, документация
+  // Collect data: for each file — code, AST, documentation
   const fileDataList: FileData[] = [];
 
-  // Используем параллельный пайплайн для получения документации
+  // Use parallel pipeline for documentation
   await processFilesConcurrent(files, async (file, index) => {
     const code: string = readFile(file);
     const astInfo = extractComponentInfo(code);
     const componentName = astInfo.name || path.basename(file, path.extname(file));
     const currentHash = hashContent(code);
 
-    // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+    // Skip files without useful content (barrel files, empty, re-exports only)
     if (astInfo.fileType === "skip") {
       return { file, success: true, skipped: true, outputPath: entitiesDir };
     }
 
     if (!astInfo.exportsComponent) {
-      // Даже для неэкспортируемых файлов создаём wiki-страницу, но confidence = low
+      // Even for non-exported files, create wiki page but confidence = low
     }
 
-    // Инкрементальность: проверяем хэш существующей страницы
+    // Incrementality: check existing page hash
     const pageSlug = slugify(componentName) + ".md";
     const pagePath = path.join(entitiesDir, pageSlug);
     if (!opts.force && fs.existsSync(pagePath)) {
       const existingContent = fs.readFileSync(pagePath, "utf-8");
       const existingHash = extractWikiHash(existingContent);
       if (existingHash === currentHash) {
-        // Хэш совпадает — переиспользуем существующую документацию без LLM-вызова
+        // Hash matches — reuse existing documentation without LLM call
         const oldDoc = extractWikiBody(existingContent);
         fileDataList.push({ file, code, astInfo, componentName, doc: oldDoc, success: true, hash: currentHash });
         return { file, success: true, skipped: true, skipReason: "hash-match", outputPath: entitiesDir };
       }
     }
 
-    // Получаем LLM-документацию
+    // Get LLM documentation
     const prompt = getDocumentationPrompt(astInfo, code);
     let doc = "";
     let success = false;
@@ -327,14 +327,14 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     return { file, success, outputPath: entitiesDir };
   }, opts, "Wiki generation");
 
-  // === Шаг 2: Строим граф компонентов для перекрёстных ссылок ===
-  // Граф строится напрямую из уже извлечённых astInfo — без повторного парсинга
+  // === Step 2: Build component graph for cross-references ===
+  // Graph built directly from extracted astInfo — no re-parsing
   const graph = buildGraphFromData(fileDataList);
 
-  // === Шаг 3: Определяем, какие страницы уже существуют ===
+  // === Step 3: Determine which pages already exist ===
   const existingPages = readExistingPages(wikiDir);
 
-  // === Шаг 4: Записываем wiki-страницы ===
+  // === Step 4: Write wiki pages ===
   const createdPages: string[] = [];
   const updatedPages: string[] = [];
   const currentPages = new Set<string>();
@@ -347,7 +347,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     const pagePath = path.join(entitiesDir, pageSlug);
     currentPages.add(slugify(pageName));
 
-    // Дети и родители из графа
+    // Children and parents from graph
     const node = graph[pageName];
     const children = node?.children ?? [];
     const parentNames = Object.entries(graph)
@@ -366,7 +366,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       hash: data.hash,
     };
 
-    // Собираем содержимое
+    // Build content
     const content = buildWikiContent(
       data.doc,
       fm,
@@ -383,7 +383,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       createdPages.push(pageName);
     }
 
-    // Извлекаем summary из первого предложения LLM-документации
+    // Extract summary from first sentence of LLM documentation
     const firstLine = data.doc
       .replace(/^#\s+.+/m, "")
       .trim()
@@ -399,7 +399,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     });
   }
 
-  // === Шаг 5: Архивируем удалённые страницы ===
+  // === Step 5: Archive removed pages ===
   const archivedPages: string[] = [];
   for (const existing of existingPages) {
     if (!currentPages.has(existing)) {
@@ -413,14 +413,14 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     }
   }
 
-  // === Шаг 6: Пишем index.md ===
+  // === Step 6: Write index.md ===
   const indexContent = buildIndex(pagesForIndex);
   fs.writeFileSync(path.join(wikiDir, INDEX_FILE), indexContent, "utf-8");
 
-  // === Шаг 7: Пишем log.md ===
+  // === Step 7: Write log.md ===
   updateLog(wikiDir, createdPages, updatedPages, archivedPages);
 
-  // === Итог ===
+  // === Summary ===
   if (opts.verbose) {
     console.log(`\n✨ Wiki generated in ${wikiDir}`);
     console.log(`  📄 ${createdPages.length} created, ${updatedPages.length} updated`);
@@ -431,7 +431,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
 }
 
 /**
- * Читает дату создания из существующего frontmatter файла.
+ * Reads creation date from existing frontmatter file.
  */
 function getFileDate(filePath: string, field: "created" | "updated"): string {
   try {

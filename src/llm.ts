@@ -1,5 +1,5 @@
 /**
- * @fileoverview Фасад для выбора провайдера LLM (HTTP или OpenCode SDK)
+ * @fileoverview Facade for selecting LLM provider (HTTP or OpenCode SDK)
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -9,26 +9,26 @@ import { callOpencode, closeOpencode } from "./opencode-provider.js";
 import { CliOptions, LlmApiOptions } from "./types.js";
 
 /**
- * Тип провайдера LLM
+ * LLM provider type
  */
 export type LlmProvider = "http" | "opencode";
 
 /**
- * Определяет провайдера по опциям CLI.
- * Если указан --opencode, используем OpenCode SDK,
- * иначе — HTTP (существующее поведение).
+ * Determines provider from CLI options.
+ * If --opencode is set, use OpenCode SDK,
+ * otherwise — HTTP (current behavior).
  */
 function resolveProvider(opts: CliOptions): LlmProvider {
   return opts.opencode ? "opencode" : "http";
 }
 
 /**
- * Отправляет промпт в LLM через выбранный провайдер.
+ * Sends prompt to LLM via selected provider.
  *
- * @param opts - Опции CLI (содержат api URL, opencode модель и т.д.)
- * @param prompt - Текст промпта
- * @param options - Дополнительные опции LLM
- * @param provider - Провайдер (определяется из opts, если не указан явно)
+ * @param opts - CLI options (contain api URL, opencode model, etc.)
+ * @param prompt - Prompt text
+ * @param options - Additional LLM options
+ * @param provider - Provider (determined from opts if not explicitly provided)
  */
 export async function callLlm(
   opts: CliOptions,
@@ -43,7 +43,7 @@ export async function callLlm(
     return await callOpencode(prompt, model);
   }
 
-  // HTTP провайдер — передаём stream, модель и другие опции
+  // HTTP provider — pass stream, model and other options
   const llmOptions: LlmApiOptions = {};
   if (options?.maxTokens != null) llmOptions.maxTokens = options.maxTokens;
   else if (opts.maxTokens != null) llmOptions.maxTokens = opts.maxTokens;
@@ -51,7 +51,7 @@ export async function callLlm(
   else if (opts.temperature != null) llmOptions.temperature = opts.temperature;
   if (options?.stream != null) llmOptions.stream = options.stream;
   else if (opts.stream) llmOptions.stream = true;
-  // Модель: для HTTP — имя модели, для OpenCode — провайдер/модель
+  // Model: for HTTP — model name, for OpenCode — provider/model
   const model = options?.model || opts.opencodeModel || "";
   if (model) llmOptions.model = model;
 
@@ -62,7 +62,7 @@ export async function callLlm(
 }
 
 /**
- * Освобождает ресурсы провайдера (если нужно).
+ * Releases provider resources (if needed).
  */
 export function disposeLlm(): void {
   closeOpencode();

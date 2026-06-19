@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля llm-client
+ * @fileoverview Tests for llm-client module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -7,7 +7,7 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { callLLM } from '../src/llm-client.js';
 
-// Mock глобального fetch
+// Mock global fetch
 const mockFetch = mock(() => new Response());
 global.fetch = mockFetch;
 

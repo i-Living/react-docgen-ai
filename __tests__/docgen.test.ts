@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля docgen
+ * @fileoverview Tests for docgen module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -74,7 +74,7 @@ describe('Docgen', () => {
     // Default setup
     mockFileUtils.getDocFiles.mockImplementation(async () => []);
     mockFileUtils.outputFileExists.mockImplementation(() => false);
-    // Default callLLM возвращает валидную документацию (с # и длиннее 50 символов)
+    // Default callLLM returns valid documentation (with # and longer than 50 chars)
     mockLlmClient.callLLM.mockImplementation(async () => '# Component\n\nValid documentation with enough length for validation test.');
   });
 
@@ -217,7 +217,7 @@ describe('Docgen', () => {
 
       const origLog = console.log;
       console.log = () => {};
-      // Ошибка обрабатывается внутри пайплайна — функция не выбрасывает
+      // Error is handled inside the pipeline — function doesn't throw
       await generateDocs(mockOptions);
       console.log = origLog;
 

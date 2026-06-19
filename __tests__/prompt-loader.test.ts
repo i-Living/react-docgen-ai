@@ -1,5 +1,5 @@
 /**
- * @fileoverview Тесты для модуля prompt-loader
+ * @fileoverview Tests for prompt-loader module
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -48,7 +48,7 @@ describe('Prompt Loader', () => {
     it('should throw error when prompt file does not exist', () => {
       spyOn(fs, 'existsSync').mockImplementation(() => false);
       
-      expect(() => loadPrompt('nonexistent', {})).toThrow('Промпт не найден:');
+      expect(() => loadPrompt('nonexistent', {})).toThrow('Prompt not found:');
     });
 
     it('should handle empty replacements object', () => {

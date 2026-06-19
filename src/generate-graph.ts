@@ -1,5 +1,5 @@
 /**
- * @fileoverview Модуль для генерации графа зависимостей React компонентов
+ * @fileoverview Module for generating React component dependency graphs
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -10,51 +10,51 @@ import fs from "fs";
 import { CliOptions } from "./types.js";
 
 /**
- * Генерирует визуальные представления графа компонентов проекта
- * Создает DOT файл для Graphviz и Markdown представление
- * @param opts - Опции командной строки
+ * Generates visual representations of the project's component graph
+ * Creates DOT file for Graphviz and Markdown representation
+ * @param opts - CLI options
  */
 export async function generateGraph(opts: CliOptions): Promise<void> {
   try {
-    // Получаем список всех файлов компонентов в проекте
+    // Get list of all component files in the project
     const filePaths: string[] = await getFiles(opts.src, opts.extensions);
 
-    // Преобразуем пути к файлам в структурированный формат
+    // Convert file paths to structured format
     const files = filePaths.map((p: string) => ({
       path: p,
       content: readFile(p)
     }));
 
-    // Строим граф зависимостей компонентов
+    // Build component dependency graph
     const graph = buildComponentGraph(files);
 
-    // Преобразуем граф в различные форматы для визуализации
+    // Convert graph to various visualization formats
     const dot: string = graphToDot(graph);
     const md: string = graphToMarkdown(graph);
 
-    // Создаем директорию для выходных файлов
+    // Create output directory
     const outDir: string = opts.out + "/graph";
     fs.mkdirSync(outDir, { recursive: true });
 
-    // Записываем DOT файл для Graphviz
+    // Write DOT file for Graphviz
     fs.writeFileSync(outDir + "/components.dot", dot);
     
-    // Записываем Markdown файл с описанием иерархии
+    // Write Markdown file with hierarchy description
     fs.writeFileSync(outDir + "/components.md", md);
 
-    // Выводим инструкции по использованию
+    // Print usage instructions
     if (opts.verbose) {
       console.log("✓ Graph DOT file saved to:", outDir + "/components.dot");
       console.log("✓ Markdown tree saved to:", outDir + "/components.md");
-      console.log("\n📊 Для визуализации графа выполните:");
+      console.log("\n📊 To visualize the graph run:");
       console.log(`dot -Tpng ${outDir}/components.dot -o ${outDir}/components.png`);
-      console.log("\n🔧 Дополнительные форматы:");
+      console.log("\n🔧 Additional formats:");
       console.log(`dot -Tsvg ${outDir}/components.dot -o ${outDir}/components.svg`);
       console.log(`dot -Tpdf ${outDir}/components.dot -o ${outDir}/components.pdf`);
     }
 
   } catch (error) {
-    // Обработка ошибок с подробным логированием
+    // Error handling with detailed logging
     console.error("❌ Error generating component graph:", error);
     throw error;
   }

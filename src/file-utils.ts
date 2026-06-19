@@ -217,42 +217,6 @@ export function hasCodeChanges(original: string, modified: string): boolean {
   return originalClean !== modifiedClean;
 }
 
-/**
- * Checks if output file exists
- * @param baseOut - Base output directory
- * @param srcFile - Source file path
- * @returns true if output file already exists
- */
-export function outputFileExists(baseOut: string, srcFile: string): boolean {
-  const rel: string = path.relative(process.cwd(), srcFile);
-  const outPath: string = path.join(baseOut, rel);
-  try {
-    return fs.statSync(outPath).isFile();
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Gets list of all md files in documentation directory
- * @param docsDir - Documentation directory
- * @returns Promise with array of md file paths
- */
-export async function getDocFiles(docsDir: string): Promise<string[]> {
-  if (!fs.existsSync(docsDir)) {
-    return [];
-  }
-  return findFilesRecursive(docsDir, ['md']);
-}
-
-/**
- * Deletes file
- * @param filePath - File path to delete
- */
-export function deleteFile(filePath: string): void {
-  fs.rmSync(filePath, { recursive: true, force: true });
-}
-
 // ── Hash-based incrementality ───────────────────────────────────────────────
 
 /**
@@ -262,32 +226,6 @@ export function deleteFile(filePath: string): void {
  */
 export function hashContent(content: string): string {
   return crypto.createHash("sha256").update(content).digest("hex").substring(0, 16);
-}
-
-/**
- * Reads existing output documentation file.
- * @param baseOut - Base output directory
- * @param srcFile - Source file path
- * @returns File content or null if file doesn't exist
- */
-export function readOutputFile(baseOut: string, srcFile: string): string | null {
-  const rel: string = path.relative(process.cwd(), srcFile);
-  const outPath: string = path.join(baseOut, rel);
-  try {
-    return fs.readFileSync(outPath, "utf8");
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Extracts hash from documentation file (HTML comment at start).
- * Format: `<!-- docgen-hash: abc123 -->`
- * @returns Hash or null if comment not found
- */
-export function extractDocHash(content: string): string | null {
-  const match = content.match(/<!-- docgen-hash: ([a-f0-9]+) -->/);
-  return match?.[1] ?? null;
 }
 
 /**

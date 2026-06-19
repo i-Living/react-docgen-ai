@@ -16,8 +16,6 @@ export interface CliOptions {
   annotate: boolean;
   /** Whether to annotate code in-place */
   annotateInplace?: boolean;
-  /** Whether to generate documentation */
-  docs: boolean;
   /** Whether to generate component graph */
   graph: boolean;
   /** List of file extensions */
@@ -36,8 +34,6 @@ export interface CliOptions {
   promptDir?: string;
   /** Dry-run mode (no LLM calls or writes) */
   dryRun?: boolean;
-  /** Documentation output format */
-  format?: OutputFormat;
   /** Use streaming for HTTP provider */
   stream?: boolean;
   /** Maximum tokens for LLM requests */
@@ -51,9 +47,6 @@ export interface CliOptions {
   /** Quiet mode — minimal logging (default false) */
   quiet?: boolean;
 }
-
-/** Documentation output format */
-export type OutputFormat = "markdown" | "json";
 
 /**
  * File type determined via AST analysis.

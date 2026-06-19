@@ -10,7 +10,6 @@ import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { annotateProject, annotateInPlace } from "./annotator.js";
-import { generateDocs } from "./docgen.js";
 import { generateGraph } from "./generate-graph.js";
 import { generateWiki } from "./wiki-generator.js";
 import { CliOptions } from "./types.js";
@@ -63,7 +62,6 @@ program
   .option("-o, --out <path>", "Output directory for results", DEFAULT_OUT)
   .option("--annotate", "Annotate code by adding detailed comments")
   .option("--annotate-inplace", "Annotate code directly in source files")
-  .option("--docs", "Generate detailed Markdown documentation for components")
   .option("--graph", "Generate component dependency graph (DOT and Markdown)")
   .option("-e, --extensions <exts>", "File extensions to process", DEFAULT_EXTENSIONS)
   .option("--api <url>", "LLM API URL (OpenAI-compatible endpoint)", DEFAULT_API)
@@ -75,7 +73,6 @@ program
   .option("--parallel <number>", "Number of parallel LLM requests", DEFAULT_PARALLEL)
   .option("--prompt-dir <path>", "Directory with custom prompt files")
   .option("--dry-run", "Dry run mode (no LLM calls or writes)", false)
-  .option("--format <format>", "Output format (markdown|json)", "markdown")
   .option("--stream", "Enable streaming for HTTP provider", false)
   .option("--wiki [path]", "Generate LLM Wiki (Obsidian-compatible docs) to specified directory", DEFAULT_WIKI || undefined)
   .option("--verbose", "Verbose output of process information", false)
@@ -83,12 +80,11 @@ program
 
 program.action(async (opts: Record<string, any>) => {
   try {
-    if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph && !opts.wiki) {
-      console.log("Error: Choose at least one option: --annotate, --annotate-inplace, --docs, --graph or --wiki");
+    if (!opts.annotate && !opts.annotateInplace && !opts.graph && !opts.wiki) {
+      console.log("Error: Choose at least one option: --annotate, --annotate-inplace, --graph or --wiki");
       console.log("\nUsage:");
       console.log("  react-docgen-ai --src ./src --annotate");
       console.log("  react-docgen-ai --src ./src --annotate-inplace");
-      console.log("  react-docgen-ai --src ./src --docs");
       console.log("  react-docgen-ai --src ./src --graph");
       console.log("  react-docgen-ai --src ./src --wiki");
       
@@ -101,7 +97,6 @@ program.action(async (opts: Record<string, any>) => {
       out: opts.out,
       annotate: opts.annotate ?? false,
       annotateInplace: opts.annotateInplace ?? false,
-      docs: opts.docs ?? false,
       graph: opts.graph ?? false,
       extensions: opts.extensions,
       api: opts.api,
@@ -111,7 +106,6 @@ program.action(async (opts: Record<string, any>) => {
       parallel: parseInt(opts.parallel, 10) || 4,
       promptDir: opts.promptDir || undefined,
       dryRun: opts.dryRun ?? false,
-      format: opts.format === "json" ? "json" : "markdown",
       stream: opts.stream ?? false,
       maxTokens: parseInt(opts.maxTokens, 10) || undefined,
       temperature: parseFloat(opts.temperature) || undefined,
@@ -131,10 +125,6 @@ program.action(async (opts: Record<string, any>) => {
 
     if (opts.annotateInplace) {
       await annotateInPlace(normalized);
-    }
-
-    if (opts.docs) {
-      await generateDocs(normalized);
     }
 
     if (opts.graph) {

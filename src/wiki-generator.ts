@@ -269,12 +269,12 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   const total = files.length;
 
   if (total === 0) {
-    console.log("\n⚠️ Нет файлов для обработки (Wiki)");
+    if (!opts.quiet) console.log("\n⚠️ Нет файлов для обработки (Wiki)");
     return;
   }
 
   // === Шаг 1: Получаем документацию от LLM (параллельно) ===
-  console.log(`\n📖 Wiki generation: ${total} files`);
+  if (!opts.quiet) console.log(`\n📖 Wiki generation: ${total} files`);
 
   // Собираем данные: для каждого файла — код, AST, документация
   const fileDataList: FileData[] = [];
@@ -318,7 +318,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       doc = await callLlm(opts, prompt);
       success = true;
     } catch (err) {
-      console.log(`  ⚠️ Wiki LLM error for ${file}: ${(err as Error)?.message}`);
+      if (opts.verbose) console.log(`  ⚠️ Wiki LLM error for ${file}: ${(err as Error)?.message}`);
       doc = `Компонент **${componentName}**.\n\n*Документация не сгенерирована (LLM error).*`;
     }
 
@@ -421,10 +421,12 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   updateLog(wikiDir, createdPages, updatedPages, archivedPages);
 
   // === Итог ===
-  console.log(`\n✨ Wiki generated in ${wikiDir}`);
-  console.log(`  📄 ${createdPages.length} created, ${updatedPages.length} updated`);
-  if (archivedPages.length > 0) {
-    console.log(`  🗄️ ${archivedPages.length} archived`);
+  if (opts.verbose) {
+    console.log(`\n✨ Wiki generated in ${wikiDir}`);
+    console.log(`  📄 ${createdPages.length} created, ${updatedPages.length} updated`);
+    if (archivedPages.length > 0) {
+      console.log(`  🗄️ ${archivedPages.length} archived`);
+    }
   }
 }
 

@@ -1,10 +1,14 @@
-/**
+/** 
  * @fileoverview Командная строка для react-docgen-ai
  * @author AI Docgen
  * @version 1.0.0
  */
 
 import { Command } from "commander";
+import { disposeLlm } from "./llm.js";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { annotateProject, annotateInPlace } from "./annotator.js";
 import { generateDocs } from "./docgen.js";
 import { generateGraph } from "./generate-graph.js";
@@ -12,7 +16,7 @@ import { generateWiki } from "./wiki-generator.js";
 import { CliOptions } from "./types.js";
 import { readEnv, readEnvInt, readEnvFloat } from "./env.js";
 
-// ── Env-умолчания ──────────────────────────────────────────────────────────
+// -- Env-умолчания --
 const DEFAULT_API       = readEnv("LLM_API_URL", "http://localhost:8000/completions");
 const DEFAULT_MAX_TOKENS = String(readEnvInt("LLM_MAX_TOKENS", 4096));
 const DEFAULT_TEMP       = String(readEnvFloat("LLM_TEMPERATURE", 0.1));
@@ -23,29 +27,36 @@ const DEFAULT_WIKI       = readEnv("DOCGEN_WIKI", "");
 
 /**
  * Определяет путь wiki из CLI-аргумента.
- * - `--wiki ./path` → ./path
- * - `--wiki` (без значения) → ./wiki
- * - ничего → undefined (отключено) или env-значение
+ * - `--wiki ./path` -> ./path
+ * - `--wiki` (без значения) -> ./wiki
+ * - ничего -> undefined (отключено) или env-значение
  */
 function resolveWiki(wikiOpt: string | boolean | undefined): string | undefined {
   if (wikiOpt === true) {
-    // --wiki без значения → дефолтный путь
     return "./wiki";
   }
   if (typeof wikiOpt === "string" && wikiOpt.trim()) {
     return wikiOpt.trim();
   }
-  // undefined или пустая строка → отключено
   return undefined;
 }
 
-// Инициализируем новый экземпляр командной строки
+// -- Version from package.json --
+let PKG_VERSION = "1.0.0";
+try {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8"));
+  PKG_VERSION = pkg.version || PKG_VERSION;
+} catch {
+  // fallback to hardcoded
+}
+
 const program = new Command();
 
 program
   .name("react-docgen-ai")
   .description("Автоматическое документирование и аннотирование React кода с использованием LLM")
-  .version("1.0.0");
+  .version(PKG_VERSION);
 
 program
   .requiredOption("-s, --src <path>", "Путь к исходной директории или отдельному файлу с React компонентами")
@@ -61,20 +72,20 @@ program
   .option("--max-tokens <number>", "Максимальное количество токенов для LLM запросов", DEFAULT_MAX_TOKENS)
   .option("--temperature <number>", "Температура генерации LLM (0.0 - 1.0)", DEFAULT_TEMP)
   .option("--force", "Принудительно обрабатывать файлы с @fileoverview", false)
-  // Новые опции
   .option("--parallel <number>", "Количество параллельных запросов к LLM", DEFAULT_PARALLEL)
   .option("--prompt-dir <path>", "Директория с кастомными файлами промптов")
   .option("--dry-run", "Режим сухого прогона (без вызова LLM и записи)", false)
   .option("--format <format>", "Формат вывода документации (markdown|json)", "markdown")
   .option("--stream", "Использовать streaming для HTTP провайдера", false)
-  .option("--wiki [path]", "Генерировать LLM Wiki (Obsidian-совместимая документация) в указанную директорию", DEFAULT_WIKI || undefined);
+  .option("--wiki [path]", "Генерировать LLM Wiki (Obsidian-совместимая документация) в указанную директорию", DEFAULT_WIKI || undefined)
+  .option("--verbose", "Подробный вывод информации о процессе", false)
+  .option("--quiet", "Тихий режим — минимум логов", false);
 
 program.action(async (opts: Record<string, any>) => {
   try {
-    // Проверяем, что выбрана хотя бы одна операция
     if (!opts.annotate && !opts.annotateInplace && !opts.docs && !opts.graph && !opts.wiki) {
-      console.log("❌ Ошибка: Выберите хотя бы одну опцию: --annotate, --annotate-inplace, --docs, --graph или --wiki");
-      console.log("\n📖 Использование:");
+      console.log("Ошибка: Выберите хотя бы одну опцию: --annotate, --annotate-inplace, --docs, --graph или --wiki");
+      console.log("\nИспользование:");
       console.log("  react-docgen-ai --src ./src --annotate");
       console.log("  react-docgen-ai --src ./src --annotate-inplace");
       console.log("  react-docgen-ai --src ./src --docs");
@@ -84,7 +95,6 @@ program.action(async (opts: Record<string, any>) => {
       process.exit(1);
     }
 
-    // Нормализуем типы (Commander возвращает строки)
     const resolvedWiki = resolveWiki(opts.wiki);
     const normalized: CliOptions = {
       src: opts.src,
@@ -105,15 +115,16 @@ program.action(async (opts: Record<string, any>) => {
       stream: opts.stream ?? false,
       maxTokens: parseInt(opts.maxTokens, 10) || undefined,
       temperature: parseFloat(opts.temperature) || undefined,
+      verbose: opts.verbose ?? false,
+      quiet: opts.quiet ?? false,
       ...(resolvedWiki ? { wiki: resolvedWiki } : {}),
     };
 
     if (opts.dryRun) {
-      console.log("\n🧪 ===== DRY RUN MODE =====");
+      console.log("\n===== DRY RUN MODE =====");
       console.log("  Files will be scanned but no LLM calls or writes will be made.\n");
     }
 
-    // Выполняем аннотирование кода если опция указана
     if (opts.annotate) {
       await annotateProject(normalized);
     }
@@ -134,36 +145,38 @@ program.action(async (opts: Record<string, any>) => {
       await generateWiki(normalized, resolvedWiki);
     }
 
-    if (!opts.dryRun) {
-      console.log("\n🎉 Все операции успешно завершены!");
+    if (!opts.dryRun && !opts.quiet) {
+      console.log("\nВсе операции успешно завершены!");
     }
   } catch (error) {
-    console.error("❌ Критическая ошибка:", error);
+    console.error("Критическая ошибка:", error);
 
     if (error instanceof Error) {
       if (error.message.includes("EACCES")) {
-        console.log("\n💡 Возможно, недостаточно прав доступа.");
+        console.log("\nВозможно, недостаточно прав доступа.");
       } else if (error.message.includes("ENOENT")) {
-        console.log("\n💡 Возможно, указан несуществующий путь.");
+        console.log("\nВозможно, указан несуществующий путь.");
       }
     }
 
     process.exit(1);
+  } finally {
+    disposeLlm();
   }
 });
 
 program.on("command:*", () => {
-  console.error("❌ Неизвестная команда. Используйте --help для получения справки.");
+  console.error("Неизвестная команда. Используйте --help для получения справки.");
   process.exit(1);
 });
 
 process.on("SIGINT", () => {
-  console.log("\n\n⏹️ Получен сигнал прерывания. Завершение работы...");
+  console.log("\n\nПолучен сигнал прерывания. Завершение работы...");
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  console.log("\n\n⏹️ Получен сигнал завершения. Завершение работы...");
+  console.log("\n\nПолучен сигнал завершения. Завершение работы...");
   process.exit(0);
 });
 

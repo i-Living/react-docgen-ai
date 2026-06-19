@@ -48,21 +48,21 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
     const modeLabel = mode === 'copy' ? 'Annotation (copy)' : 'Annotation (in-place)';
 
     if (opts.dryRun) {
-      console.log(`\n🧪 [DRY RUN] ${modeLabel}: ${files.length} files`);
+      if (!opts.quiet) console.log(`\n🧪 [DRY RUN] ${modeLabel}: ${files.length} files`);
 
       let skipped = 0;
       let processed = 0;
       for (const file of files) {
         const code = readFile(file);
         if (!opts.force && hasFileoverview(code)) {
-          console.log(`  ⏭️ [SKIP] has @fileoverview: ${file}`);
+          if (opts.verbose) console.log(`  ⏭️ [SKIP] has @fileoverview: ${file}`);
           skipped++;
         } else {
-          console.log(`  ✓ Would annotate: ${file}`);
+          if (!opts.quiet) console.log(`  ✓ Would annotate: ${file}`);
           processed++;
         }
       }
-      console.log(`\n🧪 Dry-run: ${processed} would process, ${skipped} would skip`);
+      if (!opts.quiet) console.log(`\n🧪 Dry-run: ${processed} would process, ${skipped} would skip`);
       return;
     }
 

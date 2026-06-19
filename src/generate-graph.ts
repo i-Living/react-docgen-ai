@@ -43,17 +43,15 @@ export async function generateGraph(opts: CliOptions): Promise<void> {
     fs.writeFileSync(outDir + "/components.md", md);
 
     // Выводим инструкции по использованию
-    console.log("✓ Graph DOT file saved to:", outDir + "/components.dot");
-    console.log("✓ Markdown tree saved to:", outDir + "/components.md");
-
-    // Предоставляем команду для генерации PNG изображения
-    console.log("\n📊 Для визуализации графа выполните:");
-    console.log(`dot -Tpng ${outDir}/components.dot -o ${outDir}/components.png`);
-    
-    // Дополнительные возможности визуализации
-    console.log("\n🔧 Дополнительные форматы:");
-    console.log(`dot -Tsvg ${outDir}/components.dot -o ${outDir}/components.svg`);
-    console.log(`dot -Tpdf ${outDir}/components.dot -o ${outDir}/components.pdf`);
+    if (opts.verbose) {
+      console.log("✓ Graph DOT file saved to:", outDir + "/components.dot");
+      console.log("✓ Markdown tree saved to:", outDir + "/components.md");
+      console.log("\n📊 Для визуализации графа выполните:");
+      console.log(`dot -Tpng ${outDir}/components.dot -o ${outDir}/components.png`);
+      console.log("\n🔧 Дополнительные форматы:");
+      console.log(`dot -Tsvg ${outDir}/components.dot -o ${outDir}/components.svg`);
+      console.log(`dot -Tpdf ${outDir}/components.dot -o ${outDir}/components.pdf`);
+    }
 
   } catch (error) {
     // Обработка ошибок с подробным логированием

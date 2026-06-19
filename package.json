@@ -10,13 +10,15 @@
   },
   "scripts": {
     "build": "tsc && bun run copy-prompts",
+    "clean": "bun -e \"const fs = require('fs'); fs.rmSync('dist', {recursive: true, force: true});\"",
     "copy-prompts": "bun -e \"const fs = require('fs'); fs.cpSync('src/prompts', 'dist/prompts', {recursive: true});\"",
     "dev": "tsc --watch",
     "start": "bun dist/cli.js",
-    "clean": "bun -e \"const fs = require('fs'); fs.rmSync('dist', {recursive: true, force: true});\"",
     "test": "bun test __tests__/ast-extractor.test.ts __tests__/compact-format.test.ts __tests__/component-graph.test.ts __tests__/file-utils.test.ts __tests__/prompt-loader.test.ts __tests__/llm-client.test.ts",
     "test:mock": "bun test __tests__/annotator.test.ts __tests__/docgen.test.ts __tests__/generate-graph.test.ts",
-    "test:all": "bun test __tests__/ast-extractor.test.ts __tests__/compact-format.test.ts __tests__/component-graph.test.ts __tests__/file-utils.test.ts __tests__/prompt-loader.test.ts __tests__/llm-client.test.ts __tests__/annotator.test.ts __tests__/docgen.test.ts __tests__/generate-graph.test.ts"
+    "test:all": "bun test __tests__/",
+    "prepublishOnly": "bun run build && bun run test:all",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@babel/parser": "^7.23.0",

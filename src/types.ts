@@ -46,6 +46,10 @@ export interface CliOptions {
   temperature?: number | undefined;
   /** Директория для генерации LLM Wiki (Karpathy-style) */
   wiki?: string;
+  /** Подробный вывод (по умолчанию false) */
+  verbose?: boolean;
+  /** Тихий режим — минимум логов (по умолчанию false) */
+  quiet?: boolean;
 }
 
 /** Формат вывода документации */

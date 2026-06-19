@@ -108,16 +108,16 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
     const format: OutputFormat = opts.format ?? "markdown";
 
     if (opts.dryRun) {
-      console.log(`\n🧪 [DRY RUN] Docgen (${format}): ${files.length} files`);
+      if (!opts.quiet) console.log(`\n🧪 [DRY RUN] Docgen (${format}): ${files.length} files`);
       for (const file of files) {
         const outFile = file.replace(/\.(js|jsx|ts|tsx)$/, format === "json" ? ".json" : ".md");
         if (!opts.force && outputFileExists(outDir, outFile)) {
-          console.log(`  ⏭️ [SKIP] exists: ${outFile}`);
+          if (opts.verbose) console.log(`  ⏭️ [SKIP] exists: ${outFile}`);
         } else {
-          console.log(`  ✓ Would generate: ${outFile}`);
+          if (!opts.quiet) console.log(`  ✓ Would generate: ${outFile}`);
         }
       }
-      console.log(`\n🧪 Dry-run completed.`);
+      if (!opts.quiet) console.log(`\n🧪 Dry-run completed.`);
 
       // В dry-run не удаляем orphaned docs
       return;

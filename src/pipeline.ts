@@ -28,7 +28,7 @@ export async function processFilesConcurrent(
 ): Promise<FileResult[]> {
   const total = files.length;
   if (total === 0) {
-    console.log(`\n⚠️ Нет файлов для обработки (${label})`);
+    if (!opts.quiet) console.log(`\n⚠️ Нет файлов для обработки (${label})`);
     return [];
   }
 
@@ -36,17 +36,17 @@ export async function processFilesConcurrent(
   const results: FileResult[] = [];
 
   if (opts.dryRun) {
-    console.log(`\n🧪 [DRY RUN] ${label}: ${total} files\n`);
+    if (!opts.quiet) console.log(`\n🧪 [DRY RUN] ${label}: ${total} files\n`);
     // В dry-run просто показываем что будет
     for (const file of files) {
-      console.log(`  ⏭️ Would process: ${file}`);
+      if (!opts.quiet) console.log(`  ⏭️ Would process: ${file}`);
     }
-    console.log(`\n🧪 Dry-run completed. ${total} files would be processed.`);
+    if (!opts.quiet) console.log(`\n🧪 Dry-run completed. ${total} files would be processed.`);
     return files.map((f) => ({ file: f, success: true, skipped: true, skipReason: "dry-run" }));
   }
 
-  console.log(`\n📘 ${label}: ${total} files (concurrency: ${concurrency})`);
-  renderProgress(0, total);
+  if (!opts.quiet) console.log(`\n📘 ${label}: ${total} files (concurrency: ${concurrency})`);
+  if (!opts.quiet) renderProgress(0, total);
 
   // Разбиваем файлы на батчи по concurrency штук
   const batches: string[][] = [];
@@ -93,12 +93,12 @@ export async function processFilesConcurrent(
     }
 
     completed += batch.length;
-    renderProgress(completed, total);
+    if (!opts.quiet) renderProgress(completed, total);
   }
 
-  finalizeProgress();
-  console.log(`\n✨ ${label} completed! ✅ ${succeeded} | ❌ ${failed} | ⏭️ ${skipped} skipped | 📁 ${total} total`);
-  if (skipReasons.size > 0) {
+  if (!opts.quiet) finalizeProgress();
+  if (!opts.quiet) console.log(`\n✨ ${label} completed! ✅ ${succeeded} | ❌ ${failed} | ⏭️ ${skipped} skipped | 📁 ${total} total`);
+  if (!opts.quiet && skipReasons.size > 0) {
     const reasonStr = [...skipReasons.entries()].map(([r, n]) => `${r}: ${n}`).join(", ");
     console.log(`   skip breakdown — ${reasonStr}`);
   }

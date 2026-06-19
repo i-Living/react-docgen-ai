@@ -57,6 +57,8 @@ export async function processFilesConcurrent(
   let completed = 0;
   let succeeded = 0;
   let failed = 0;
+  let skipped = 0;
+  const skipReasons = new Map<string, number>();
 
   for (const batch of batches) {
     const batchResults = await Promise.allSettled(
@@ -70,7 +72,13 @@ export async function processFilesConcurrent(
       if (r.status === "fulfilled") {
         results.push(r.value);
         if (r.value.success) {
-          succeeded++;
+          if (r.value.skipped) {
+            skipped++;
+            const reason = r.value.skipReason ?? "unknown";
+            skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
+          } else {
+            succeeded++;
+          }
         } else {
           failed++;
         }
@@ -89,7 +97,11 @@ export async function processFilesConcurrent(
   }
 
   finalizeProgress();
-  console.log(`\n✨ ${label} completed! ✅ ${succeeded} | ❌ ${failed} | 📁 ${total} total`);
+  console.log(`\n✨ ${label} completed! ✅ ${succeeded} | ❌ ${failed} | ⏭️ ${skipped} skipped | 📁 ${total} total`);
+  if (skipReasons.size > 0) {
+    const reasonStr = [...skipReasons.entries()].map(([r, n]) => `${r}: ${n}`).join(", ");
+    console.log(`   skip breakdown — ${reasonStr}`);
+  }
 
   return results;
 }

@@ -306,4 +306,70 @@ describe('AST Extractor', () => {
       expect(result.state).toHaveLength(1);
     });
   });
+
+  describe('file classification', () => {
+    it('should classify component with JSX and export', () => {
+      const code = `
+        function Button() { return <button>Click</button>; }
+        export default Button;
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.fileType).toBe('component');
+    });
+
+    it('should classify hook with use* prefix and state', () => {
+      const code = `
+        export function useToggle() {
+          const [open, setOpen] = useState(false);
+          return open;
+        }
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.fileType).toBe('hook');
+    });
+
+    it('should detect createContext as context type', () => {
+      const code = `
+        import { createContext } from "react";
+        export const ThemeContext = createContext({ theme: "light" });
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.hasContext).toBe(true);
+      expect(result.fileType).toBe('context');
+    });
+
+    it('should detect Zustand create as store type', () => {
+      const code = `
+        import { create } from "zustand";
+        export const useStore = create((set) => ({ count: 0, inc: () => set((s) => ({ count: s.count + 1 })) }));
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.hasStore).toBe(true);
+      expect(result.fileType).toBe('store');
+    });
+
+    it('should detect Jotai atom as store type', () => {
+      const code = `
+        import { atom } from "jotai";
+        export const countAtom = atom(0);
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.hasStore).toBe(true);
+      expect(result.fileType).toBe('store');
+    });
+
+    it('should classify util (function, no JSX)', () => {
+      const code = `
+        export function formatDate(date) { return date.toISOString(); }
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.fileType).toBe('util');
+    });
+
+    it('should classify barrel file as skip', () => {
+      const code = `export { Button } from "./Button";\nexport { Input } from "./Input";`;
+      const result = extractComponentInfo(code);
+      expect(result.fileType).toBe('skip');
+    });
+  });
 });

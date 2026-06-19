@@ -12,7 +12,7 @@ import { CliOptions, ComponentInfo } from "./types.js";
 import { getFiles, readFile, hashContent, extractWikiHash } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
-import { buildComponentGraph } from "./ast/component-graph.js";
+import { ComponentGraph } from "./types.js";
 import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
@@ -45,13 +45,22 @@ function toFrontmatter(fm: WikiFrontmatter): string {
 
 /**
  * Извлекает тело wiki-страницы (без YAML frontmatter).
+ * Строго определяет frontmatter: начинается с `---` на первой строке,
+ * заканчивается следующим `---` на отдельной строке.
  * Используется при hash-match для переиспользования существующей документации.
  */
 function extractWikiBody(content: string): string {
-  // Убираем frontmatter (--- ... ---)
-  const fmEnd = content.indexOf("---\n", content.indexOf("---\n") + 1);
-  if (fmEnd === -1) return content;
-  return content.slice(fmEnd + 4).trim();
+  const lines = content.split("\n");
+  // Frontmatter должен начинаться с --- на первой строке
+  if (lines[0]?.trim() !== "---") return content;
+  // Ищем закрывающий --- (строка, состоящая только из ---)
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i]?.trim() === "---") {
+      return lines.slice(i + 1).join("\n").trim();
+    }
+  }
+  // Нет закрывающего --- — возвращаем как есть
+  return content;
 }
 
 /**
@@ -115,6 +124,34 @@ function estimateConfidence(info: ComponentInfo): WikiFrontmatter["confidence"] 
   if (info.exportsComponent && info.jsxTree.length > 2) return "high";
   if (info.exportsComponent) return "medium";
   return "low";
+}
+
+/** Данные файла, собранные для wiki-генерации */
+type FileData = {
+  file: string;
+  code: string;
+  astInfo: ComponentInfo;
+  componentName: string;
+  doc: string;
+  success: boolean;
+  hash: string;
+};
+
+/**
+ * Строит граф компонентов напрямую из уже извлечённых FileData.
+ * Избегает повторного парсинга AST — использует astInfo.jsxTree.
+ */
+function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
+  const graph: ComponentGraph = {};
+  for (const data of fileDataList) {
+    if (!data.astInfo.exportsComponent) continue;
+    const childComponents = data.astInfo.jsxTree.filter((c: string) => /^[A-Z]/.test(c));
+    graph[data.componentName] = {
+      file: data.file,
+      children: childComponents,
+    };
+  }
+  return graph;
 }
 
 // ── Persistent state tracking ──────────────────────────────────────────────
@@ -234,16 +271,6 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   console.log(`\n📖 Wiki generation: ${total} files`);
 
   // Собираем данные: для каждого файла — код, AST, документация
-  type FileData = {
-    file: string;
-    code: string;
-    astInfo: ComponentInfo;
-    componentName: string;
-    doc: string;
-    success: boolean;
-    hash: string;
-  };
-
   const fileDataList: FileData[] = [];
 
   // Используем параллельный пайплайн для получения документации
@@ -295,9 +322,8 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   }, opts, "Wiki generation");
 
   // === Шаг 2: Строим граф компонентов для перекрёстных ссылок ===
-  const graph = buildComponentGraph(
-    fileDataList.map((d) => ({ path: d.file, content: d.code })),
-  );
+  // Граф строится напрямую из уже извлечённых astInfo — без повторного парсинга
+  const graph = buildGraphFromData(fileDataList);
 
   // === Шаг 3: Определяем, какие страницы уже существуют ===
   const existingPages = readExistingPages(wikiDir);

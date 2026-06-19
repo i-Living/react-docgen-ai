@@ -33,6 +33,7 @@ export function extractComponentInfo(code: string): ComponentInfo {
     exportsComponent: false,
     fileType: "skip",
     hasContext: false,
+    hasStore: false,
   };
   const traverse = typeof _traverse === "function" ? _traverse : ((_traverse as any).default as typeof _traverse)
 
@@ -197,6 +198,11 @@ export function extractComponentInfo(code: string): ComponentInfo {
           info.hasContext = true;
         }
 
+        // Обработка state management: Zustand (create), Jotai (atom), Redux (createSlice)
+        if (calleeName === "create" || calleeName === "atom" || calleeName === "createSlice") {
+          info.hasStore = true;
+        }
+
         // Обработка React.memo/forwardRef (извлекаем имя из аргумента функции)
         if (calleeName === "memo" || calleeName === "forwardRef") {
           const innerFn = path.node.arguments[0];
@@ -248,6 +254,9 @@ function classifyFile(info: ComponentInfo): FileType {
   if (info.name && info.name.startsWith("use") && info.exportsComponent) {
     return "hook";
   }
+
+  // Store: обнаружен state management (Zustand/Jotai/Redux)
+  if (info.hasStore) return "store";
 
   // Context: обнаружен createContext
   if (info.hasContext) return "context";

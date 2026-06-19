@@ -108,12 +108,15 @@ Line 3 with replaced3`;
       effects: [{ deps: ['isLoading'] }],
       handlers: [],
       jsxTree: ['button'],
-      exportsComponent: true
+      exportsComponent: true,
+      fileType: 'component' as const,
+      hasContext: false,
+      hasStore: false,
     };
 
     const componentCode = 'function Button() { return <button>Click</button>; }';
 
-    it('should generate annotation prompt with AST info and code', () => {
+    it('should generate annotation prompt with compact AST info and code', () => {
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
       jest.spyOn(fs, 'readFileSync').mockReturnValue('AST_INFO: {{AST_INFO}}\nCODE: {{CODE}}');
       
@@ -121,7 +124,7 @@ Line 3 with replaced3`;
       
       expect(result).toContain('AST_INFO:');
       expect(result).toContain('CODE:');
-      expect(result).toContain(JSON.stringify(astInfo, null, 2));
+      expect(result).toContain('Name: Button');
       expect(result).toContain(componentCode);
     });
 
@@ -147,7 +150,10 @@ Line 3 with replaced3`;
           { name: 'handleReset', params: [] }
         ],
         jsxTree: ['div', 'form', 'input', 'button', 'ErrorMessage'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
+        hasStore: false,
       };
 
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -155,7 +161,8 @@ Line 3 with replaced3`;
       
       const result = getAnnotationPrompt(complexAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(complexAstInfo, null, 2));
+      expect(result).toContain('Name: ComplexComponent');
+      expect(result).toContain('State: [isLoading, error, formData]');
       expect(result).toContain(componentCode);
     });
 
@@ -167,7 +174,10 @@ Line 3 with replaced3`;
         effects: [],
         handlers: [],
         jsxTree: [],
-        exportsComponent: false
+        exportsComponent: false,
+        fileType: 'skip' as const,
+        hasContext: false,
+        hasStore: false,
       };
 
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -175,7 +185,7 @@ Line 3 with replaced3`;
       
       const result = getAnnotationPrompt(emptyAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(emptyAstInfo, null, 2));
+      expect(result).toContain('Type: skip');
       expect(result).toContain(componentCode);
     });
   });

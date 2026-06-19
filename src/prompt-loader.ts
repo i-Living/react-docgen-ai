@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { FileType } from "./types.js";
-import { buildPromptPayload } from "./ast/compact-format.js";
+import { buildPromptPayload, toCompactAst } from "./ast/compact-format.js";
 
 let _promptDirOverride: string | null = null;
 
@@ -92,14 +92,17 @@ export function loadPrompt(promptName: string, replacements: Record<string, stri
 }
 
 /**
- * Загружает промпт для аннотирования
+ * Загружает промпт для аннотирования.
+ * Использует компактный AST-формат вместо JSON (экономия токенов).
+ * Внимание: для аннотирования код всегда передаётся полностью.
  * @param astInfo - Информация о компоненте из AST
  * @param code - Исходный код компонента
  * @returns Готовый промпт для аннотирования
  */
 export function getAnnotationPrompt(astInfo: any, code: string): string {
+  const compactAst = toCompactAst(astInfo);
   return loadPrompt("annotation", {
-    AST_INFO: JSON.stringify(astInfo, null, 2),
+    AST_INFO: compactAst,
     CODE: code
   });
 }

@@ -40,6 +40,10 @@ export interface CliOptions {
   format?: OutputFormat;
   /** Использовать streaming для HTTP провайдера */
   stream?: boolean;
+  /** Максимальное количество токенов для LLM запросов */
+  maxTokens?: number | undefined;
+  /** Температура генерации LLM (0.0 - 1.0) */
+  temperature?: number | undefined;
   /** Директория для генерации LLM Wiki (Karpathy-style) */
   wiki?: string;
 }
@@ -78,6 +82,8 @@ export interface ComponentInfo {
   fileType: FileType;
   /** Обнаружен createContext (React Context) */
   hasContext: boolean;
+  /** Обнаружен state management (Zustand/Jotai/Redux) */
+  hasStore: boolean;
 }
 
 /**

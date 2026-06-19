@@ -59,7 +59,12 @@ export function toCompactAst(info: ComponentInfo): string {
 
   // Context
   if (info.hasContext) {
-    lines.push(`Context: createContext detected`);
+    lines.push("Context: createContext detected");
+  }
+
+  // Store
+  if (info.hasStore) {
+    lines.push("Store: state management detected");
   }
 
   return lines.join("\n");

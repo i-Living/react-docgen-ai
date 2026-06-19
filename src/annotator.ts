@@ -8,6 +8,7 @@ import { getFiles, readFile, writeOutput, writeInPlace, hasFileoverview, removeC
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getAnnotationPrompt, setPromptDirectory } from "./prompt-loader.js";
+import { toCompactAst } from "./ast/compact-format.js";
 import { CliOptions } from "./types.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
@@ -80,6 +81,11 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
 
       // Извлекаем структурную информацию через AST
       const astInfo = extractComponentInfo(code);
+
+      // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+      if (astInfo.fileType === "skip") {
+        return { file, success: true, skipped: true, skipReason: "no-content" };
+      }
 
       // Формируем детальный промпт для LLM
       const prompt = getAnnotationPrompt(astInfo, code);

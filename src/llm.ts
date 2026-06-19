@@ -46,7 +46,9 @@ export async function callLlm(
   // HTTP провайдер — передаём stream и другие опции
   const llmOptions: LlmApiOptions = {};
   if (options?.maxTokens != null) llmOptions.maxTokens = options.maxTokens;
+  else if (opts.maxTokens != null) llmOptions.maxTokens = opts.maxTokens;
   if (options?.temperature != null) llmOptions.temperature = options.temperature;
+  else if (opts.temperature != null) llmOptions.temperature = opts.temperature;
   if (options?.stream != null) llmOptions.stream = options.stream;
   else if (opts.stream) llmOptions.stream = true;
 

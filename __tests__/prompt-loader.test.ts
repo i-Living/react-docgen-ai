@@ -6,13 +6,15 @@
 
 import path from 'path';
 import fs from 'fs';
+import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
 
 // Import the source files, not the dist files
 import { loadPrompt, getAnnotationPrompt, getDocumentationPrompt } from '../src/prompt-loader';
 
 describe('Prompt Loader', () => {
   beforeEach(() => {
-    jest.restoreAllMocks();
+    spyOn(fs, 'existsSync').mockRestore();
+    spyOn(fs, 'readFileSync').mockRestore();
   });
 
   describe('loadPrompt', () => {
@@ -20,8 +22,8 @@ describe('Prompt Loader', () => {
     const testPromptContent = 'This is a test prompt with {{KEY}} placeholder';
     
     it('should load prompt from file and replace placeholders', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(testPromptContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => testPromptContent);
       
       const result = loadPrompt('test', { KEY: 'replaced value' });
       
@@ -31,8 +33,8 @@ describe('Prompt Loader', () => {
 
     it('should handle multiple placeholders', () => {
       const contentWithMultiplePlaceholders = 'First: {{KEY1}}, Second: {{KEY2}}, Third: {{KEY3}}';
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(contentWithMultiplePlaceholders);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithMultiplePlaceholders);
       
       const result = loadPrompt('test', {
         KEY1: 'value1',
@@ -44,14 +46,14 @@ describe('Prompt Loader', () => {
     });
 
     it('should throw error when prompt file does not exist', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      spyOn(fs, 'existsSync').mockImplementation(() => false);
       
       expect(() => loadPrompt('nonexistent', {})).toThrow('Промпт не найден:');
     });
 
     it('should handle empty replacements object', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(testPromptContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => testPromptContent);
       
       const result = loadPrompt('test', {});
       
@@ -60,8 +62,8 @@ describe('Prompt Loader', () => {
 
     it('should handle prompts with no placeholders', () => {
       const contentWithoutPlaceholders = 'This prompt has no placeholders';
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(contentWithoutPlaceholders);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithoutPlaceholders);
       
       const result = loadPrompt('test', { ANY_KEY: 'value' });
       
@@ -70,8 +72,8 @@ describe('Prompt Loader', () => {
 
     it('should escape special regex characters in placeholders', () => {
       const contentWithSpecialChars = 'Prompt with {{KEY[0]}} and {{KEY[1]}}';
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(contentWithSpecialChars);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithSpecialChars);
       
       const result = loadPrompt('test', { 'KEY[0]': 'value0', 'KEY[1]': 'value1' });
       
@@ -83,8 +85,8 @@ describe('Prompt Loader', () => {
 Line 2 with {{KEY2}}
 Line 3 with {{KEY3}}`;
       
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue(multilineContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => multilineContent);
       
       const result = loadPrompt('test', {
         KEY1: 'replaced1',
@@ -117,8 +119,8 @@ Line 3 with replaced3`;
     const componentCode = 'function Button() { return <button>Click</button>; }';
 
     it('should generate annotation prompt with compact AST info and code', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('AST_INFO: {{AST_INFO}}\nCODE: {{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'AST_INFO: {{AST_INFO}}\nCODE: {{CODE}}');
       
       const result = getAnnotationPrompt(astInfo, componentCode);
       
@@ -156,8 +158,8 @@ Line 3 with replaced3`;
         hasStore: false,
       };
 
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getAnnotationPrompt(complexAstInfo, componentCode);
       
@@ -180,8 +182,8 @@ Line 3 with replaced3`;
         hasStore: false,
       };
 
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getAnnotationPrompt(emptyAstInfo, componentCode);
       
@@ -206,8 +208,8 @@ Line 3 with replaced3`;
     const componentCode = 'const UserCard = ({ user }) => <div><Avatar />{user.name}</div>';
 
     it('should generate documentation prompt with compact AST info', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('Generate docs for:\n{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'Generate docs for:\n{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(astInfo, componentCode);
       
@@ -236,8 +238,8 @@ Line 3 with replaced3`;
         hasContext: false,
       };
 
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('Document TypeScript component:\n{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'Document TypeScript component:\n{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(tsAstInfo, componentCode);
       
@@ -266,8 +268,8 @@ Line 3 with replaced3`;
         hasContext: false,
       };
 
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'readFileSync').mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(effectAstInfo, componentCode);
       

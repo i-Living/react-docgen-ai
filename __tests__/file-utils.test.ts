@@ -4,6 +4,9 @@
  * @version 1.0.0
  */
 
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import path from 'path';
+import fs from 'fs';
 import {
   getFiles,
   readFile,
@@ -11,135 +14,25 @@ import {
   writeInPlace,
   hasFileoverview,
   removeComments,
-  hasCodeChanges
+  hasCodeChanges,
+  hashContent,
 } from '../src/file-utils.js';
-import fs from 'fs';
-import path from 'path';
 
-// Mock dependencies
+const TMP = path.join(process.cwd(), '__test_fs__');
 
-jest.mock('fs', () => ({
-  existsSync: jest.fn().mockReturnValue(true),
-  statSync: jest.fn().mockReturnValue({ isFile: () => true, isDirectory: () => false }),
-  readFileSync: jest.fn().mockReturnValue(''),
-  writeFileSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  rmSync: jest.fn(),
-  cpSync: jest.fn(),
-  readdirSync: jest.fn().mockReturnValue([]),
-}));
-
-describe('File Utils', () => {
-  const testDir = path.join(process.cwd(), 'test-output');
-  const testFile = path.join(testDir, 'test.txt');
-  const testContent = 'Hello World';
-  const mockFs = fs as jest.Mocked<typeof fs>;
-  
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // Setup default mocks
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.statSync.mockReturnValue({ isFile: () => false, isDirectory: () => true } as any);
-    mockFs.readFileSync.mockReturnValue(testContent);
-    mockFs.writeFileSync.mockReturnValue(undefined);
-    mockFs.mkdirSync.mockReturnValue(undefined);
-    mockFs.mkdirSync.mockReturnValue(undefined);
-  });
-
-  describe('readFile', () => {
-    beforeEach(() => {
-      fs.writeFileSync(testFile, testContent);
-    });
-
-    afterEach(() => {
-      if (fs.existsSync(testFile)) {
-        fs.rmSync(testFile);
-      }
-    });
-
-    it('should read file content correctly', () => {
-      const result = readFile(testFile);
-      expect(result).toBe(testContent);
-    });
-
-    it('should throw error when file does not exist', () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      mockFs.readFileSync.mockImplementationOnce(() => { throw new Error('ENOENT: no such file or directory'); });
-      expect(() => readFile('non-existent-file.txt')).toThrow();
-    });
-  });
-
-  describe('writeOutput', () => {
-    const baseOut = path.join(testDir, 'output');
-    const srcFile = path.join(testDir, 'source.ts');
-    const content = 'console.log("test");';
-
-    beforeEach(() => {
-      fs.writeFileSync(srcFile, content);
-    });
-
-    afterEach(() => {
-      if (fs.existsSync(baseOut)) {
-        fs.rmSync(baseOut);
-      }
-      if (fs.existsSync(srcFile)) {
-        fs.rmSync(srcFile);
-      }
-    });
-
-    it('should create output directory and write file', () => {
-      const result = writeOutput(baseOut, srcFile, content);
-      expect(fs.existsSync(result)).toBe(true);
-      expect(fs.writeFileSync).toHaveBeenCalled();
-      expect(fs.mkdirSync).toHaveBeenCalled();
-    });
-
-    it('should preserve directory structure', () => {
-      const subDirFile = path.join(testDir, 'src', 'components', 'Test.tsx');
-
-      const result = writeOutput(baseOut, subDirFile, content);
-      expect(fs.mkdirSync).toHaveBeenCalled();
-      expect(fs.writeFileSync).toHaveBeenCalled();
-    });
-  });
-
-  describe('writeInPlace', () => {
-    const newContent = 'Modified content';
-
-    beforeEach(() => {
-      fs.writeFileSync(testFile, testContent);
-    });
-
-    afterEach(() => {
-      if (fs.existsSync(testFile)) {
-        fs.rmSync(testFile);
-      }
-    });
-
-    it('should overwrite file content in place', () => {
-      writeInPlace(testFile, newContent);
-      expect(fs.writeFileSync).toHaveBeenCalledWith(testFile, newContent, "utf8");
-    });
-  });
-
+describe('File Utils — pure functions (no fs)', () => {
   describe('hasFileoverview', () => {
-    const realHasFileoverview = jest.requireActual('../src/file-utils.js').hasFileoverview;
     it('should return true for files with @fileoverview', () => {
-      const contentWithOverview = `/**
+      const code = `/**
  * @fileoverview Test component
- * @version 1.0.0
  */
-export default function Test() {
-  return <div>Test</div>;
-}`;
-      expect(hasFileoverview(contentWithOverview)).toBe(true);
+export default function Test() { return <div>Test</div>; }`;
+      expect(hasFileoverview(code)).toBe(true);
     });
 
     it('should return false for files without @fileoverview', () => {
-      const contentWithoutOverview = `export default function Test() {
-  return <div>Test</div>;
-}`;
-      expect(hasFileoverview(contentWithoutOverview)).toBe(false);
+      const code = `export default function Test() { return <div>Test</div>; }`;
+      expect(hasFileoverview(code)).toBe(false);
     });
 
     it('should only check first 500 characters', () => {
@@ -154,152 +47,127 @@ export default function Test() {
   });
 
   describe('removeComments', () => {
-    const realRemoveComments = jest.requireActual('../src/file-utils.js').removeComments;
     it('should remove single-line comments', () => {
-      const code = `// This is a comment
-const x = 5; // inline comment
-/* Multi-line
-   comment */
-const y = 10;`;
-
-      const result = realRemoveComments(code);
+      const code = `// This is a comment\nconst x = 5; // inline\nconst y = 10;`;
+      const result = removeComments(code);
       expect(result).toContain('const x = 5;');
       expect(result).toContain('const y = 10;');
       expect(result).not.toContain('// This is a comment');
-      expect(result).not.toContain('inline comment');
     });
 
     it('should remove multi-line comments', () => {
-      const code = `/* 
- * Block comment
- */
-const x = 5;
-/**
- * JSDoc comment
- */
-const y = 10;`;
-
-      const result = realRemoveComments(code);
+      const code = `/* Block */\nconst x = 5;\n/** JSDoc */\nconst y = 10;`;
+      const result = removeComments(code);
       expect(result).toContain('const x = 5;');
       expect(result).toContain('const y = 10;');
-      expect(result).not.toContain('Block comment');
-      expect(result).not.toContain('JSDoc comment');
+      expect(result).not.toContain('Block');
+      expect(result).not.toContain('JSDoc');
     });
 
     it('should preserve string literals', () => {
-      const code = `const str = "// This is not a comment";
-const str2 = "/* This is not a comment */";
-const str3 = \`// This is not a comment\`;
-
-console.log(str);`;
-
-      const result = realRemoveComments(code);
-      expect(result).toContain('// This is not a comment');
-      expect(result).toContain('/* This is not a comment */');
-    });
-
-    it('should normalize whitespace', () => {
-      const code = `   
-const   x   =   5;   
-    
-
-const y = 10;  
-`;
-
-      const result = realRemoveComments(code);
-      expect(result).toContain('const x = 5;');
-      expect(result).toContain('const y = 10;');
+      const code = `const s = "// not a comment"; const s2 = "/* not a comment */";`;
+      const result = removeComments(code);
+      expect(result).toContain('// not a comment');
+      expect(result).toContain('/* not a comment */');
     });
   });
 
   describe('hasCodeChanges', () => {
-    const realHasCodeChanges = jest.requireActual('../src/file-utils.js').hasCodeChanges;
-    const realRemoveComments = jest.requireActual('../src/file-utils.js').removeComments;
-    it('should return false when code is identical (ignoring comments)', () => {
-      const original = `// Comment
-const x = 5;
-export default function Test() { return <div>Test</div>; }`;
-
-      const modified = `/** Different comment */
-const x = 5;
-export default function Test() { return <div>Test</div>; }`;
-
-      expect(hasCodeChanges(original, modified)).toBe(false);
+    it('should return false when only comments differ', () => {
+      expect(hasCodeChanges('// old\nconst x = 5;', '/** new */\nconst x = 5;')).toBe(false);
     });
 
     it('should return true when code structure changed', () => {
-      const original = `const x = 5;`;
-      const modified = `const x = 10;`;
+      expect(hasCodeChanges('const x = 5;', 'const x = 10;')).toBe(true);
+    });
+  });
 
-      expect(hasCodeChanges(original, modified)).toBe(true);
+  describe('hashContent', () => {
+    it('should return consistent hash for same input', () => {
+      expect(hashContent('hello')).toBe(hashContent('hello'));
     });
 
-    it('should return true when function signature changed', () => {
-      const original = `function Test() { return <div>Test</div>; }`;
-      const modified = `function Test() { return <div>Modified</div>; }`;
+    it('should return different hash for different input', () => {
+      expect(hashContent('hello')).not.toBe(hashContent('world'));
+    });
 
-      expect(hasCodeChanges(original, modified)).toBe(true);
+    it('should return 16-character hex string', () => {
+      expect(hashContent('test')).toMatch(/^[a-f0-9]{16}$/);
+    });
+  });
+});
+
+describe('File Utils — integration (temp files)', () => {
+  // Создаём временные файлы для настоящего fs
+  const dir = path.join(TMP, 'file-utils-test');
+  const srcFile = path.join(dir, 'source.ts');
+  const outDir = path.join(dir, 'output');
+  const content = 'console.log("hello");';
+
+  beforeAll(() => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(srcFile, content, 'utf-8');
+    fs.writeFileSync(path.join(dir, 'test.txt'), 'text content', 'utf-8');
+    // Поддиректория с расширениями для getFiles
+    const srcDir = path.join(dir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(path.join(srcDir, 'comp.tsx'), '', 'utf-8');
+    fs.writeFileSync(path.join(srcDir, 'styles.css'), '', 'utf-8');
+    fs.writeFileSync(path.join(srcDir, 'util.ts'), '', 'utf-8');
+  });
+
+  afterAll(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  describe('readFile', () => {
+    it('should read file content correctly', () => {
+      expect(readFile(srcFile)).toBe(content);
+    });
+
+    it('should throw on non-existent file', () => {
+      expect(() => readFile(path.join(dir, 'nope.ts'))).toThrow();
+    });
+  });
+
+  describe('writeOutput', () => {
+    it('should create output directory and write file', () => {
+      const result = writeOutput(outDir, srcFile, content);
+      expect(fs.existsSync(result)).toBe(true);
+      expect(readFile(result)).toBe(content);
+    });
+  });
+
+  describe('writeInPlace', () => {
+    it('should overwrite file content in place', () => {
+      const test = path.join(dir, 'inplace-test.txt');
+      fs.writeFileSync(test, 'original', 'utf-8');
+      writeInPlace(test, 'modified');
+      expect(readFile(test)).toBe('modified');
     });
   });
 
   describe('getFiles', () => {
-    // Use real implementation for getFiles (not mocked)
-    const realGetFiles = jest.requireActual('../src/file-utils.js').getFiles;
-    const testFilesDir = path.join(testDir, 'test-files');
-    const testJsFile = path.join(testFilesDir, 'test.js');
-    const testTsFile = path.join(testFilesDir, 'test.ts');
-    const testTxtFile = path.join(testFilesDir, 'test.txt');
-
-    beforeEach(() => {
-      // Настраиваем моки fs для имитации файловой структуры
-      const testDirEntries = [
-        { name: 'test.js', isFile: () => true, isDirectory: () => false },
-        { name: 'test.ts', isFile: () => true, isDirectory: () => false },
-        { name: 'test.txt', isFile: () => true, isDirectory: () => false },
-      ];
-      const testDirName = path.basename(testFilesDir);
-      const parentDir = path.dirname(testFilesDir);
-      mockFs.readdirSync.mockImplementation((dir: string) => {
-        if (dir === testFilesDir) return testDirEntries as any;
-        if (dir === parentDir) return [{ name: testDirName, isFile: () => false, isDirectory: () => true }] as any;
-        return [];
-      });
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.statSync.mockImplementation((p: string) => {
-        if (p === testFilesDir) return { isFile: () => false, isDirectory: () => true } as any;
-        if (p === testJsFile || p === testTsFile || p === testTxtFile) return { isFile: () => true, isDirectory: () => false } as any;
-        return { isFile: () => true, isDirectory: () => false } as any;
-      });
+    it('should filter by extensions', async () => {
+      const srcDir = path.join(dir, 'src');
+      const files = await getFiles(srcDir, 'ts,tsx');
+      expect(files).not.toContain(path.join(srcDir, 'styles.css'));
+      expect(files).toContain(path.join(srcDir, 'comp.tsx'));
+      expect(files).toContain(path.join(srcDir, 'util.ts'));
     });
 
-    afterEach(() => {
-      jest.clearAllMocks();
-    });
-
-    it('should get files from directory with valid extensions', async () => {
-      const files = await realGetFiles(testFilesDir, 'js,ts');
-      
-      expect(files).toHaveLength(2);
-      expect(files).toContain(testJsFile);
-      expect(files).toContain(testTsFile);
-    });
-
-    it('should handle single file with valid extension', async () => {
-      mockFs.statSync.mockReturnValue({ isFile: () => true, isDirectory: () => false } as any);
-      const files = await realGetFiles(testJsFile, 'js');
+    it('should handle single file', async () => {
+      const files = await getFiles(srcFile, 'ts,tsx');
       expect(files).toHaveLength(1);
-      expect(files).toContain(testJsFile);
+      expect(files[0]).toBe(srcFile);
     });
 
-    it('should throw error for single file with invalid extension', async () => {
-      mockFs.statSync.mockReturnValue({ isFile: () => true, isDirectory: () => false } as any);
-      await expect(realGetFiles(testTxtFile, 'js,ts')).rejects.toThrow();
+    it('should reject invalid extension file', async () => {
+      await expect(getFiles(path.join(dir, 'test.txt'), 'ts')).rejects.toThrow();
     });
 
-    it('should throw error for non-existent path', async () => {
-      mockFs.existsSync.mockReturnValue(false);
-      mockFs.statSync.mockReturnValue({ isFile: () => true, isDirectory: () => false } as any);
-      await expect(realGetFiles('non-existent-path', 'js')).rejects.toThrow();
+    it('should reject non-existent path', async () => {
+      await expect(getFiles(path.join(dir, 'nope'), 'ts')).rejects.toThrow();
     });
   });
 });

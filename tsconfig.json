@@ -39,11 +39,5 @@
     "dist",
     "**/*.test.ts",
     "**/*.spec.ts"
-  ],
-  "ts-node": {
-    "esm": true,
-    "compilerOptions": {
-      "module": "ESNext"
-    }
-  }
+  ]
 }

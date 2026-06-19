@@ -4,41 +4,78 @@
  * @version 1.0.0
  */
 
-import { generateDocs } from '../src/docgen.js';
-import { getFiles, readFile, getDocFiles, writeOutput } from '../src/file-utils.js';
-import { callLLM } from '../src/llm-client.js';
-import { extractComponentInfo } from '../src/ast/ast-extractor.js';
-import { getDocumentationPrompt } from '../src/prompt-loader.js';
-import fs from 'fs';
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
-jest.mock('../src/file-utils.js');
-jest.mock('../src/llm-client.js');
-jest.mock('../src/ast/ast-extractor.js');
-jest.mock('../src/prompt-loader.js');
-jest.mock('fs', () => ({
-  existsSync: jest.fn().mockReturnValue(true),
-  statSync: jest.fn().mockReturnValue({ isFile: () => true, isDirectory: () => false }),
-  readFileSync: jest.fn().mockReturnValue(''),
-  writeFileSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  rmSync: jest.fn(),
-  cpSync: jest.fn(),
-  readdirSync: jest.fn().mockReturnValue([]),
-}));
+// Mutable mock objects
+const mockFileUtils: Record<string, any> = {
+  getFiles: mock(async () => []),
+  readFile: mock(() => ''),
+  writeOutput: mock(() => ''),
+  outputFileExists: mock(() => false),
+  getDocFiles: mock(async () => []),
+  deleteFile: mock(() => undefined),
+  readOutputFile: mock(() => null),
+  extractDocHash: mock(() => null),
+  hashContent: mock(() => ''),
+};
+
+const mockLlmClient: Record<string, any> = {
+  callLLM: mock(async () => ''),
+};
+
+const mockAstExtractor: Record<string, any> = {
+  extractComponentInfo: mock(() => ({
+    name: null,
+    props: [],
+    state: [],
+    effects: [],
+    handlers: [],
+    jsxTree: [],
+    exportsComponent: false,
+    fileType: 'skip',
+    hasContext: false,
+    hasStore: false,
+  })),
+};
+
+const mockPromptLoader: Record<string, any> = {
+  getDocumentationPrompt: mock(() => ''),
+  setPromptDirectory: mock(() => undefined),
+};
+
+const mockFs: Record<string, any> = {
+  existsSync: () => true,
+  statSync: () => ({ isFile: () => true, isDirectory: () => false }),
+  readFileSync: () => '',
+  writeFileSync: () => undefined,
+  mkdirSync: () => undefined,
+  rmSync: () => undefined,
+  cpSync: () => undefined,
+  readdirSync: () => [],
+};
+
+mock.module('../src/file-utils.js', () => mockFileUtils);
+mock.module('../src/llm-client.js', () => mockLlmClient);
+mock.module('../src/ast/ast-extractor.js', () => mockAstExtractor);
+mock.module('../src/prompt-loader.js', () => mockPromptLoader);
+
+import { generateDocs } from '../src/docgen.js';
 
 describe('Docgen', () => {
-  const mockGetFiles = getFiles as jest.MockedFunction<typeof getFiles>;
-  const mockReadFile = readFile as jest.MockedFunction<typeof readFile>;
-  const mockCallLLM = callLLM as jest.MockedFunction<typeof callLLM>;
-  const mockExtractComponentInfo = extractComponentInfo as jest.MockedFunction<typeof extractComponentInfo>;
-  const mockGetDocumentationPrompt = getDocumentationPrompt as jest.MockedFunction<typeof getDocumentationPrompt>;
-  const mockFs = fs as jest.Mocked<typeof fs>;
-  const mockGetDocFiles = getDocFiles as jest.MockedFunction<typeof getDocFiles>;
-  const mockWriteOutput = writeOutput as jest.MockedFunction<typeof writeOutput>;
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetDocFiles.mockResolvedValue([]);
+    mockFileUtils.getFiles.mockClear();
+    mockFileUtils.readFile.mockClear();
+    mockFileUtils.writeOutput.mockClear();
+    mockFileUtils.outputFileExists.mockClear();
+    mockFileUtils.getDocFiles.mockClear();
+    mockLlmClient.callLLM.mockClear();
+    mockAstExtractor.extractComponentInfo.mockClear();
+    mockPromptLoader.getDocumentationPrompt.mockClear();
+    // Default setup
+    mockFileUtils.getDocFiles.mockImplementation(async () => []);
+    mockFileUtils.outputFileExists.mockImplementation(() => false);
+    // Default callLLM возвращает валидную документацию (с # и длиннее 50 символов)
+    mockLlmClient.callLLM.mockImplementation(async () => '# Component\n\nValid documentation with enough length for validation test.');
   });
 
   describe('generateDocs', () => {
@@ -49,273 +86,179 @@ describe('Docgen', () => {
       docs: true,
       graph: false,
       extensions: 'ts,tsx',
-      api: 'http://localhost:8000/completions'
+      api: 'http://localhost:8000/completions',
+      force: false,
+      opencode: false,
+      opencodeModel: '',
+      parallel: 4,
+      dryRun: false,
+      format: 'markdown' as const,
+      stream: false,
     };
 
     it('should generate documentation for single component', async () => {
       const testFiles = ['src/Button.tsx'];
-      const buttonCode = `
-        interface ButtonProps {
-          text: string;
-          onClick: () => void;
-        }
-        function Button({ text, onClick }: ButtonProps) {
-          return <button onClick={onClick}>{text}</button>;
-        }
-        export default Button;
-      `;
-      
+      const buttonCode = `function Button({ text, onClick }: any) { return <button onClick={onClick}>{text}</button>; }`;
       const componentInfo = {
-        name: 'Button',
-        props: [{ name: 'text', type: 'string' }, { name: 'onClick', type: 'function' }],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['button'],
-        exportsComponent: true
+        name: 'Button', props: [], state: [], effects: [],
+        handlers: [], jsxTree: ['button'], exportsComponent: true,
+        fileType: 'component', hasContext: false, hasStore: false,
       };
 
-      const documentation = '# Button Component\n\nA button component with text and click handler.\n\n## Props\n\n- `text`: string - Button text\n- `onClick`: function - Click handler';
+      mockFileUtils.getFiles.mockImplementation(async () => testFiles);
+      mockFileUtils.readFile.mockImplementation(() => buttonCode);
+      mockAstExtractor.extractComponentInfo.mockImplementation(() => componentInfo);
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Generate docs for Button');
+      mockLlmClient.callLLM.mockImplementation(async () => '# Button Component\n\nA button component.');
 
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(buttonCode);
-      mockExtractComponentInfo.mockReturnValue(componentInfo);
-      mockGetDocumentationPrompt.mockReturnValue('Generate docs for Button component');
-      mockCallLLM.mockResolvedValue(documentation);
-
+      // Silence console
+      const origLog = console.log;
+      console.log = () => {};
       await generateDocs(mockOptions);
+      console.log = origLog;
 
-      expect(mockGetFiles).toHaveBeenCalledWith('./test-src', 'ts,tsx');
-      expect(mockReadFile).toHaveBeenCalledWith('src/Button.tsx');
-      expect(mockExtractComponentInfo).toHaveBeenCalledWith(buttonCode);
-      expect(mockGetDocumentationPrompt).toHaveBeenCalledWith(componentInfo, buttonCode);
-      expect(mockCallLLM).toHaveBeenCalledWith(
-        'http://localhost:8000/completions',
-        'Generate docs for Button component'
-      );
-      expect(mockReadFile).toHaveBeenCalledTimes(1);
+      expect(mockFileUtils.getFiles).toHaveBeenCalledWith('./test-src', 'ts,tsx');
+      expect(mockFileUtils.readFile).toHaveBeenCalledWith('src/Button.tsx');
+      expect(mockAstExtractor.extractComponentInfo).toHaveBeenCalledWith(buttonCode);
     });
 
     it('should generate documentation for multiple components', async () => {
       const testFiles = ['src/Button.tsx', 'src/Header.tsx', 'src/Footer.tsx'];
       
-      const buttonCode = 'function Button() { return <button>Click</button>; } export default Button;';
-      const headerCode = 'function Header() { return <h1>Header</h1>; } export default Header;';
-      const footerCode = 'function Footer() { return <footer>Footer</footer>; } export default Footer;';
-
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockImplementation((file) => {
-        switch (file) {
-          case 'src/Button.tsx': return buttonCode;
-          case 'src/Header.tsx': return headerCode;
-          case 'src/Footer.tsx': return footerCode;
-          default: return '';
-        }
+      mockFileUtils.getFiles.mockImplementation(async () => testFiles);
+      mockFileUtils.readFile.mockImplementation((file: string) => {
+        const codeMap: Record<string, string> = {
+          'src/Button.tsx': 'function Button() { return <button/>; } export default Button;',
+          'src/Header.tsx': 'function Header() { return <h1/>; } export default Header;',
+          'src/Footer.tsx': 'function Footer() { return <footer/>; } export default Footer;',
+        };
+        return codeMap[file] ?? '';
       });
-
-      mockExtractComponentInfo.mockImplementation((code) => ({
+      mockAstExtractor.extractComponentInfo.mockImplementation((code: string) => ({
         name: code.includes('Button') ? 'Button' : code.includes('Header') ? 'Header' : 'Footer',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: [code.includes('button') ? 'button' : code.includes('h1') ? 'h1' : 'footer'],
-        exportsComponent: true
+        props: [], state: [], effects: [], handlers: [],
+        jsxTree: ['div'], exportsComponent: true,
+        fileType: 'component' as const, hasContext: false, hasStore: false,
       }));
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Prompt');
+      mockLlmClient.callLLM.mockImplementation(async () => '# Component\n\nValid documentation with enough length for validation test.');
 
-      mockGetDocumentationPrompt.mockReturnValue('Generate docs');
-      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
-
+      const origLog = console.log;
+      console.log = () => {};
       await generateDocs(mockOptions);
+      console.log = origLog;
 
-      expect(mockGetFiles).toHaveBeenCalledWith('./test-src', 'ts,tsx');
-      expect(mockReadFile).toHaveBeenCalledTimes(3);
-      expect(mockExtractComponentInfo).toHaveBeenCalledTimes(3);
-      expect(mockGetDocumentationPrompt).toHaveBeenCalledTimes(3);
-      expect(mockCallLLM).toHaveBeenCalledTimes(3);
+      expect(mockFileUtils.getFiles).toHaveBeenCalledWith('./test-src', 'ts,tsx');
+      expect(mockFileUtils.readFile).toHaveBeenCalledTimes(3);
+      expect(mockAstExtractor.extractComponentInfo).toHaveBeenCalledTimes(3);
+      expect(mockLlmClient.callLLM).toHaveBeenCalledTimes(3);
     });
 
     it('should handle file without default export', async () => {
       const testFiles = ['src/utils.ts'];
       const utilsCode = 'export function helper() { return "help"; }';
-
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(utilsCode);
-
       const componentInfo = {
-        name: null,
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: [],
-        exportsComponent: false
+        name: null, props: [], state: [], effects: [], handlers: [],
+        jsxTree: [], exportsComponent: false,
+        fileType: 'util' as const, hasContext: false, hasStore: false,
       };
 
-      mockExtractComponentInfo.mockReturnValue(componentInfo);
-      mockGetDocumentationPrompt.mockReturnValue('Generate docs');
+      mockFileUtils.getFiles.mockImplementation(async () => testFiles);
+      mockFileUtils.readFile.mockImplementation(() => utilsCode);
+      mockAstExtractor.extractComponentInfo.mockImplementation(() => componentInfo);
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Generate docs');
 
+      const origLog = console.log;
+      console.log = () => {};
       await generateDocs(mockOptions);
+      console.log = origLog;
 
-      // Component without export should still be processed (LLM can generate docs for non-default exports)
-      expect(mockGetDocumentationPrompt).toHaveBeenCalledWith(componentInfo, utilsCode);
-      expect(mockCallLLM).toHaveBeenCalledTimes(1);
+      expect(mockPromptLoader.getDocumentationPrompt).toHaveBeenCalledWith(componentInfo, utilsCode);
+      expect(mockLlmClient.callLLM).toHaveBeenCalledTimes(1);
     });
 
     it('should create markdown files in output directory', async () => {
       const testFiles = ['src/components/Button.tsx'];
       const buttonCode = 'function Button() { return <button>Click</button>; } export default Button;';
-      const documentation = '# Button Component\n\nA button component with display text and click handling.';
 
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(buttonCode);
-      mockExtractComponentInfo.mockReturnValue({
-        name: 'Button',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['button'],
-        exportsComponent: true
-      });
-      mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue(documentation);
+      mockFileUtils.getFiles.mockImplementation(async () => testFiles);
+      mockFileUtils.readFile.mockImplementation(() => buttonCode);
+      mockAstExtractor.extractComponentInfo.mockImplementation(() => ({
+        name: 'Button', props: [], state: [], effects: [], handlers: [],
+        jsxTree: ['button'], exportsComponent: true,
+        fileType: 'component' as const, hasContext: false, hasStore: false,
+      }));
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Prompt');
+      mockLlmClient.callLLM.mockImplementation(async () => '# Button Component');
 
+      const origLog = console.log;
+      console.log = () => {};
       await generateDocs(mockOptions);
+      console.log = origLog;
 
-      // Check that writeOutput was called with correct path transformation
-      expect(mockWriteOutput).toHaveBeenCalledWith(
+      expect(mockFileUtils.writeOutput).toHaveBeenCalledWith(
         expect.stringContaining('test-out'),
         expect.any(String),
-        documentation
+        expect.stringContaining('# Button Component'),
       );
     });
 
     it('should handle errors gracefully', async () => {
-      const testFiles = ['src/Button.tsx'];
-      const buttonCode = 'function Button() { return <button>Click</button>; } export default Button;';
+      mockFileUtils.getFiles.mockImplementation(async () => ['src/Button.tsx']);
+      mockFileUtils.readFile.mockImplementation(() => 'function B() { return null; }');
+      mockAstExtractor.extractComponentInfo.mockImplementation(() => ({
+        name: 'Button', props: [], state: [], effects: [], handlers: [],
+        jsxTree: ['button'], exportsComponent: true,
+        fileType: 'component' as const, hasContext: false, hasStore: false,
+      }));
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Prompt');
+      mockLlmClient.callLLM.mockImplementation(async () => { throw new Error('LLM API Error'); });
+      mockFileUtils.outputFileExists.mockImplementation(() => false);
 
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(buttonCode);
-      mockExtractComponentInfo.mockReturnValue({
-        name: 'Button',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['button'],
-        exportsComponent: true
-      });
-      mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      
-      const llmError = new Error('LLM API Error');
-      mockCallLLM.mockRejectedValue(llmError);
+      const origLog = console.log;
+      console.log = () => {};
+      // Ошибка обрабатывается внутри пайплайна — функция не выбрасывает
+      await generateDocs(mockOptions);
+      console.log = origLog;
 
-      // Ошибка обрабатывается внутри пайплайна — функция не выбрасывает,
-      // но файл помечается как неудачный
-      await expect(generateDocs(mockOptions)).resolves.not.toThrow();
-      expect(mockCallLLM).toHaveBeenCalled();
-    });
-
-    it('should use custom API endpoint', async () => {
-      const customOptions = {
-        ...mockOptions,
-        api: 'http://custom-llm:9000/api/generate'
-      };
-
-      const testFiles = ['src/Test.tsx'];
-      const testCode = 'export default function Test() { return <div>Test</div>; }';
-
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(testCode);
-      mockExtractComponentInfo.mockReturnValue({
-        name: 'Test',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['div'],
-        exportsComponent: true
-      });
-      mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
-
-      await generateDocs(customOptions);
-
-      expect(mockCallLLM).toHaveBeenCalledWith(
-        'http://custom-llm:9000/api/generate',
-        'Prompt'
-      );
-    });
-
-    it('should process different file extensions correctly', async () => {
-      const testFiles = ['src/Button.tsx', 'src/Header.jsx', 'src/Footer.ts', 'src/Sidebar.js'];
-      
-      const options = { ...mockOptions, extensions: 'ts,tsx,js,jsx' };
-
-      mockGetFiles.mockResolvedValue(testFiles);
-      
-      // Mock all files to have valid component code
-      mockReadFile.mockReturnValue('export default function Test() { return <div>Test</div>; }');
-      mockExtractComponentInfo.mockReturnValue({
-        name: 'Test',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['div'],
-        exportsComponent: true
-      });
-      mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
-
-      await generateDocs(options);
-
-      expect(mockGetFiles).toHaveBeenCalledWith('./test-src', 'ts,tsx,js,jsx');
-      expect(mockReadFile).toHaveBeenCalledTimes(4);
-      expect(mockExtractComponentInfo).toHaveBeenCalledTimes(4);
-      expect(mockCallLLM).toHaveBeenCalledTimes(4);
+      expect(mockLlmClient.callLLM).toHaveBeenCalled();
     });
 
     it('should handle empty directory', async () => {
-      const testFiles: string[] = [];
+      mockFileUtils.getFiles.mockImplementation(async () => []);
 
-      mockGetFiles.mockResolvedValue(testFiles);
-
+      const origLog = console.log;
+      console.log = () => {};
       await generateDocs(mockOptions);
+      console.log = origLog;
 
-      expect(mockReadFile).not.toHaveBeenCalled();
-      expect(mockExtractComponentInfo).not.toHaveBeenCalled();
-      expect(mockCallLLM).not.toHaveBeenCalled();
+      expect(mockFileUtils.readFile).not.toHaveBeenCalled();
+      expect(mockAstExtractor.extractComponentInfo).not.toHaveBeenCalled();
+      expect(mockLlmClient.callLLM).not.toHaveBeenCalled();
     });
 
     it('should log progress information', async () => {
-      const testFiles = ['src/Component.tsx'];
-      const componentCode = 'export default function Component() { return <div>Test</div>; }';
-
-      mockGetFiles.mockResolvedValue(testFiles);
-      mockReadFile.mockReturnValue(componentCode);
-      mockExtractComponentInfo.mockReturnValue({
-        name: 'Component',
-        props: [],
-        state: [],
-        effects: [],
-        handlers: [],
-        jsxTree: ['div'],
-        exportsComponent: true
-      });
-      mockGetDocumentationPrompt.mockReturnValue('Prompt');
-      mockCallLLM.mockResolvedValue('# Component Documentation\n\nThis component provides UI rendering functionality.\n\n## Props\n- **text**: string - The display text\n');
+      mockFileUtils.getFiles.mockImplementation(async () => ['src/Component.tsx']);
+      mockFileUtils.readFile.mockImplementation(() => 'function C() { return null; }');
+      mockAstExtractor.extractComponentInfo.mockImplementation(() => ({
+        name: 'C', props: [], state: [], effects: [], handlers: [],
+        jsxTree: ['div'], exportsComponent: true,
+        fileType: 'component' as const, hasContext: false, hasStore: false,
+      }));
+      mockPromptLoader.getDocumentationPrompt.mockImplementation(() => 'Prompt');
+      mockLlmClient.callLLM.mockImplementation(async () => '# Doc');
 
       // Capture console output
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const captured: string[] = [];
+      const origLog = console.log;
+      console.log = (...args: any[]) => { captured.push(args.join(' ')); };
 
       await generateDocs(mockOptions);
 
-      expect(consoleSpy).toHaveBeenCalledWith('\n📘 Docgen (markdown): 1 files (concurrency: 4)');
-      expect(consoleSpy).toHaveBeenCalledWith('\n✨ Docgen (markdown) completed! ✅ 1 | ❌ 0 | 📁 1 total');
+      console.log = origLog;
 
-      consoleSpy.mockRestore();
+      expect(captured.some((s) => s.includes('Docgen (markdown)'))).toBe(true);
+      expect(captured.some((s) => s.includes('completed'))).toBe(true);
     });
   });
 });

@@ -14,9 +14,9 @@
     "dev": "tsc --watch",
     "start": "bun dist/cli.js",
     "clean": "bun -e \"const fs = require('fs'); fs.rmSync('dist', {recursive: true, force: true});\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test": "bun test __tests__/ast-extractor.test.ts __tests__/compact-format.test.ts __tests__/component-graph.test.ts __tests__/file-utils.test.ts __tests__/prompt-loader.test.ts __tests__/llm-client.test.ts",
+    "test:mock": "bun test __tests__/annotator.test.ts __tests__/docgen.test.ts __tests__/generate-graph.test.ts",
+    "test:all": "bun test __tests__/ast-extractor.test.ts __tests__/compact-format.test.ts __tests__/component-graph.test.ts __tests__/file-utils.test.ts __tests__/prompt-loader.test.ts __tests__/llm-client.test.ts __tests__/annotator.test.ts __tests__/docgen.test.ts __tests__/generate-graph.test.ts"
   },
   "dependencies": {
     "@babel/parser": "^7.23.0",
@@ -27,15 +27,8 @@
     "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.5",
-    "@babel/preset-env": "^7.28.5",
     "@types/babel__traverse": "^7.28.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20.8.0",
-    "babel-jest": "^30.2.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
     "typescript": "^5.2.0"
   },
   "keywords": [

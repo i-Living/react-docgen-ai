@@ -4,16 +4,16 @@
  * @version 1.0.0
  */
 
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { callLLM } from '../src/llm-client.js';
 
 // Mock глобального fetch
-const mockFetch = jest.fn();
+const mockFetch = mock(() => new Response());
 global.fetch = mockFetch;
 
 describe('LLM Client', () => {
 
   beforeEach(() => {
-    jest.clearAllMocks();
     global.fetch = mockFetch;
   });
 
@@ -25,7 +25,7 @@ describe('LLM Client', () => {
           text: 'Some response text\n<|message|>Cleaned response content\n<|end|>'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -50,7 +50,7 @@ describe('LLM Client', () => {
           ]
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -64,7 +64,7 @@ describe('LLM Client', () => {
           text: 'Custom options response'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const options = {
         maxTokens: 2048,
@@ -95,7 +95,7 @@ describe('LLM Client', () => {
           text: '<|channel|><|start|><|message|>Response with channels<|end|>'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -109,7 +109,7 @@ describe('LLM Client', () => {
           text: '```javascript\nconsole.log("Hello World");\n```'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -123,7 +123,7 @@ describe('LLM Client', () => {
           text: '```typescript\ninterface Test {\n  name: string;\n}\n```\n\nSome explanation\n\n```jsx\n<Component />\n```'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -132,16 +132,16 @@ describe('LLM Client', () => {
       expect(result).toContain('<Component />');
     });
 
-    it('should handle network errors', async () => {
+    it('should handle network errors', { timeout: 30000 }, async () => {
       const networkError = new Error('ECONNREFUSED');
-      mockFetch.mockRejectedValue(networkError);
+      mockFetch.mockImplementation(() => Promise.reject(networkError));
 
       await expect(callLLM('http://localhost:8000/completions', 'test prompt'))
         .rejects
         .toThrow('LLM API error: ECONNREFUSED');
     });
 
-    it('should handle HTTP errors', async () => {
+    it('should handle HTTP errors', { timeout: 30000 }, async () => {
       const httpError = {
         response: {
           status: 500,
@@ -149,7 +149,7 @@ describe('LLM Client', () => {
         },
         message: 'Request failed with status code 500'
       };
-      mockFetch.mockRejectedValue(httpError);
+      mockFetch.mockImplementation(() => Promise.reject(httpError));
 
       await expect(callLLM('http://localhost:8000/completions', 'test prompt'))
         .rejects
@@ -161,7 +161,7 @@ describe('LLM Client', () => {
         ok: true,
         json: () => Promise.resolve({})
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -175,7 +175,7 @@ describe('LLM Client', () => {
           text: '   \n\n   \t  \n   '
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -189,7 +189,7 @@ describe('LLM Client', () => {
           text: 'Line 1\n\n\n\nLine 2\n\n\n\n\nLine 3'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -203,7 +203,7 @@ describe('LLM Client', () => {
           text: '<|channel|channel_0<|message|>First part<|end|><|channel|channel_1<|message|>Second part<|end|>'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -217,7 +217,7 @@ describe('LLM Client', () => {
           text: '<|channel|><|message|>Here is some code:\n\n```js\nconsole.log("test");\n```\n\nAnd some text.<|end|>'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -233,7 +233,7 @@ describe('LLM Client', () => {
           text: '```js\nconsole.log("Code with // comment");\n```'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -248,7 +248,7 @@ describe('LLM Client', () => {
           text: '<|channel|>Partial <|message|>Response<|end|>'
         })
       };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 

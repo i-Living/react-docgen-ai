@@ -8,7 +8,7 @@ import { parse } from "@babel/parser";
 import _traverse from "@babel/traverse";
 import { NodePath } from "@babel/traverse"
 import * as t from "@babel/types";
-import { ComponentInfo } from "../types.js";
+import { ComponentInfo, FileType } from "../types.js";
 
 /**
  * Извлекает структурную информацию о React компоненте из исходного кода
@@ -30,7 +30,10 @@ export function extractComponentInfo(code: string): ComponentInfo {
     effects: [],
     handlers: [],
     jsxTree: [],
-    exportsComponent: false
+    exportsComponent: false,
+    fileType: "skip",
+    hasContext: false,
+    hasStore: false,
   };
   const traverse = typeof _traverse === "function" ? _traverse : ((_traverse as any).default as typeof _traverse)
 
@@ -51,8 +54,13 @@ export function extractComponentInfo(code: string): ComponentInfo {
       if (path.node.id) {
         const funcName = path.node.id.name;
         
-        // Если имя начинается с заглавной буквы, это компонент
-        if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+        // Если имя начинается с "use" — это React хук
+        if (funcName.startsWith("use")) {
+          if (!info.name) {
+            info.name = funcName;
+          }
+        } else if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+          // Если имя начинается с заглавной буквы, это компонент
           if (!info.name) {
             info.name = funcName;
           }
@@ -75,8 +83,13 @@ export function extractComponentInfo(code: string): ComponentInfo {
         if (t.isIdentifier(path.node.id)) {
           const funcName = path.node.id.name;
           
-          // Если имя начинается с заглавной буквы, это компонент
-          if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+          // Если имя начинается с "use" — это React хук
+          if (funcName.startsWith("use")) {
+            if (!info.name) {
+              info.name = funcName;
+            }
+          } else if (funcName.charAt(0) === funcName.charAt(0).toUpperCase()) {
+            // Если имя начинается с заглавной буквы, это компонент
             if (!info.name) {
               info.name = funcName;
             }
@@ -180,6 +193,16 @@ export function extractComponentInfo(code: string): ComponentInfo {
           });
         }
 
+        // Обработка createContext (React Context)
+        if (calleeName === "createContext") {
+          info.hasContext = true;
+        }
+
+        // Обработка state management: Zustand (create), Jotai (atom), Redux (createSlice)
+        if (calleeName === "create" || calleeName === "atom" || calleeName === "createSlice") {
+          info.hasStore = true;
+        }
+
         // Обработка React.memo/forwardRef (извлекаем имя из аргумента функции)
         if (calleeName === "memo" || calleeName === "forwardRef") {
           const innerFn = path.node.arguments[0];
@@ -209,7 +232,47 @@ export function extractComponentInfo(code: string): ComponentInfo {
     }
   });
 
+  // Классифицируем файл на основе извлечённых данных
+  info.fileType = classifyFile(info);
+
   return info;
+}
+
+/**
+ * Определяет тип файла на основе извлечённой AST-информации.
+ * Порядок проверки имеет значение — более специфичные типы проверяются первыми.
+ */
+function classifyFile(info: ComponentInfo): FileType {
+  // Component: есть JSX и экспорт
+  if (info.jsxTree.length > 0 && info.exportsComponent) return "component";
+
+  // Hook: имя начинается с "use" и есть hooks (state/effects)
+  if (info.name && info.name.startsWith("use") && (info.state.length > 0 || info.effects.length > 0)) {
+    return "hook";
+  }
+  // Hook без состояния: имя начинается с "use" и экспортируется
+  if (info.name && info.name.startsWith("use") && info.exportsComponent) {
+    return "hook";
+  }
+
+  // Store: обнаружен state management (Zustand/Jotai/Redux)
+  if (info.hasStore) return "store";
+
+  // Context: обнаружен createContext
+  if (info.hasContext) return "context";
+
+  // Types: есть props-интерфейсы, но нет функций и JSX
+  if (info.props.length > 0 && !info.name && info.handlers.length === 0 && info.jsxTree.length === 0) {
+    return "types";
+  }
+
+  // Util: есть функции (name или handlers), но нет JSX
+  if ((info.name || info.handlers.length > 0) && info.jsxTree.length === 0) {
+    return "util";
+  }
+
+  // Skip: ничего полезного (barrel files, пустые файлы, re-exports only)
+  return "skip";
 }
 
 /**

@@ -40,12 +40,25 @@ export interface CliOptions {
   format?: OutputFormat;
   /** Использовать streaming для HTTP провайдера */
   stream?: boolean;
+  /** Максимальное количество токенов для LLM запросов */
+  maxTokens?: number | undefined;
+  /** Температура генерации LLM (0.0 - 1.0) */
+  temperature?: number | undefined;
   /** Директория для генерации LLM Wiki (Karpathy-style) */
   wiki?: string;
 }
 
 /** Формат вывода документации */
 export type OutputFormat = "markdown" | "json";
+
+/**
+ * Тип файла, определяемый через AST-анализ.
+ * Используется для:
+ * - Выбора тип-специфичного промпта (шаг 3)
+ * - Skip файлов без полезного содержимого (экономия LLM-токенов)
+ * - Компактного представления (шаг 4)
+ */
+export type FileType = "component" | "hook" | "context" | "store" | "util" | "types" | "skip";
 
 /**
  * Интерфейс для информации о React компоненте, извлеченной из AST
@@ -65,6 +78,12 @@ export interface ComponentInfo {
   jsxTree: string[];
   /** Экспортирует ли файл компонент по умолчанию */
   exportsComponent: boolean;
+  /** Тип файла, определяемый через AST (component/hook/context/util/types/skip) */
+  fileType: FileType;
+  /** Обнаружен createContext (React Context) */
+  hasContext: boolean;
+  /** Обнаружен state management (Zustand/Jotai/Redux) */
+  hasStore: boolean;
 }
 
 /**

@@ -6,6 +6,8 @@
 
 import fs from "fs";
 import path from "path";
+import { FileType } from "./types.js";
+import { buildPromptPayload, toCompactAst } from "./ast/compact-format.js";
 
 let _promptDirOverride: string | null = null;
 
@@ -90,27 +92,50 @@ export function loadPrompt(promptName: string, replacements: Record<string, stri
 }
 
 /**
- * Загружает промпт для аннотирования
+ * Загружает промпт для аннотирования.
+ * Использует компактный AST-формат вместо JSON (экономия токенов).
+ * Внимание: для аннотирования код всегда передаётся полностью.
  * @param astInfo - Информация о компоненте из AST
  * @param code - Исходный код компонента
  * @returns Готовый промпт для аннотирования
  */
 export function getAnnotationPrompt(astInfo: any, code: string): string {
+  const compactAst = toCompactAst(astInfo);
   return loadPrompt("annotation", {
-    AST_INFO: JSON.stringify(astInfo, null, 2),
+    AST_INFO: compactAst,
     CODE: code
   });
 }
 
 /**
- * Загружает промпт для генерации документации
- * @param astInfo - Информация о компоненте из AST
+ * Маппинг FileType → имя файла промпта.
+ * Если тип неизвестен — fallback на component.
+ */
+const PROMPT_BY_TYPE: Record<FileType, string> = {
+  component: "component",
+  hook: "hook",
+  context: "context",
+  store: "store",
+  util: "util",
+  types: "types",
+  skip: "component", // не используется (skip-файлы отфильтрованы ранее)
+};
+
+/**
+ * Загружает тип-специфичный промпт для генерации документации.
+ * Выбирает файл промпта на основе astInfo.fileType.
+ * Использует компактный AST-формат вместо JSON + авто-режим для кода.
+ * @param astInfo - Информация о компоненте из AST (с полем fileType)
  * @param code - Исходный код компонента
- * @returns Готовый промпт для документации
+ * @returns Готовый промпт с подставленными значениями
  */
 export function getDocumentationPrompt(astInfo: any, code: string): string {
-  return loadPrompt("documentation", {
-    AST_INFO: JSON.stringify(astInfo, null, 2),
-    CODE: code
+  const fileType: FileType = astInfo.fileType ?? "component";
+  const promptName = PROMPT_BY_TYPE[fileType] ?? "component";
+  const payload = buildPromptPayload(astInfo, code);
+
+  return loadPrompt(promptName, {
+    AST_INFO: payload.AST_INFO,
+    CODE: payload.CODE,
   });
 }

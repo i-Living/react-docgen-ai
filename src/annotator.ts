@@ -8,6 +8,7 @@ import { getFiles, readFile, writeOutput, writeInPlace, hasFileoverview, removeC
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getAnnotationPrompt, setPromptDirectory } from "./prompt-loader.js";
+import { toCompactAst } from "./ast/compact-format.js";
 import { CliOptions } from "./types.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
@@ -15,25 +16,20 @@ import { processFilesConcurrent } from "./pipeline.js";
 type AnnotationMode = 'copy' | 'inplace';
 
 /**
- * Создает более строгий промпт для повторных попыток аннотации
+ * Создаёт строгий промпт для повторных попыток аннотации.
+ * Warnings добавляются к оригинальному промпту один раз, без накопления.
  */
-function makePromptMoreStrict(originalPrompt: string, attemptNumber: number): string {
+function makePromptStrict(originalPrompt: string, attemptNumber: number): string {
   const warnings = [
-    "⚠️ КРИТИЧЕСКИ ВАЖНО: НЕ ИЗМЕНЯЙТЕ исходный код React компонента!",
-    "⚠️ КРИТИЧЕСКИ ВАЖНО: НИКОГДА НЕ СОКРАЩАЙ ФАЙЛ ЧЕРЕЗ МНОГОТОЧИЕ (...) ИЛИ ЛЮБЫМ ДРУГИМ СПОСОБОМ!",
-    "⚠️ КРИТИЧЕСКИ ВАЖНО: НИКОГДА НЕ УДАЛЯЙ, НЕ ОБРЕЗАЙ И НЕ ЗАМЕНЯЙ ЧАСТИ КОДА НА [...]!",
-    "⚠️ КРИТИЧЕСКИ ВАЖНО: ВСЕГДА ВОЗВРАЩАЙ ПОЛНЫЙ ИСХОДНЫЙ КОД С ДОБАВЛЕННЫМИ КОММЕНТАРИЯМИ!",
-    "⚠️ Запрещено менять: JSX структуру, пропсы, состояние, методы, импорты, экспорты",
-    "⚠️ Запрещено добавлять: eslint-disable и прочие директивы отмены линтинга",
-    "⚠️ Разрешено только: добавлять JSDoc комментарии /** */ перед функциями и методами",
-    "⚠️ Добавляй JSDoc с тэгом @fileoverview в начале файла с кратким описанием назначения",
-    "⚠️ Сохраняйте ВСЮ существующую логику без изменений!"
+    `=== ПОПЫТКА ${attemptNumber}/3 — СТРОГОЕ ПРЕДУПРЕЖДЕНИЕ ===`,
+    "НЕ ИЗМЕНЯЙ исходный код! НЕ СОКРАЩАЙ через (...)!",
+    "НЕ УДАЛЯЙ/ОБРЕЗАЙ части кода! ВЕРНИ ПОЛНЫЙ КОД с комментариями!",
+    "Запрещено: менять JSX/пропсы/состояние/импорты/экспорты, добавлять eslint-disable",
+    "Разрешено: только добавлять JSDoc /** */ перед функциями + @fileoverview",
+    "=== КОНЕЦ ПРЕДУПРЕЖДЕНИЯ ===\n",
   ];
 
-  const warningText = warnings.join('\n');
-  const strictHeader = `\n=== ПОПЫТКА ${attemptNumber} - СТРОГОЕ ПРЕДУПРЕЖДЕНИЕ ===\n${warningText}\n=== КОНЕЦ ПРЕДУПРЕЖДЕНИЯ ===\n\n`;
-
-  return strictHeader + originalPrompt + `\n\nПОМНИТЕ: Это попытка ${attemptNumber}. Будьте крайне осторожны с изменениями кода!`;
+  return warnings.join("\n") + originalPrompt;
 }
 
 /**
@@ -81,16 +77,25 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
       // Извлекаем структурную информацию через AST
       const astInfo = extractComponentInfo(code);
 
+      // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+      if (astInfo.fileType === "skip") {
+        return { file, success: true, skipped: true, skipReason: "no-content" };
+      }
+
       // Формируем детальный промпт для LLM
       const prompt = getAnnotationPrompt(astInfo, code);
 
-      // Генерируем код с проверкой изменений (максимум 5 попыток)
+      // Генерируем код с проверкой изменений (максимум 3 попытки)
+      const MAX_ATTEMPTS = 3;
       let attempts = 0;
       let annotated: string | null = null;
-      let currentPrompt = prompt;
 
-      while (attempts < 5) {
+      while (attempts < MAX_ATTEMPTS) {
         try {
+          // На 0-й попытке — оригинальный промпт, на последующих — строгий
+          const currentPrompt = attempts === 0
+            ? prompt
+            : makePromptStrict(prompt, attempts + 1);
           const result: string = await callLlm(opts, currentPrompt);
 
           // Проверяем, изменился ли код (игнорируя комментарии)
@@ -100,24 +105,22 @@ async function annotateFiles(opts: CliOptions, mode: AnnotationMode): Promise<vo
           }
 
           attempts++;
-          if (attempts === 5) {
+          if (attempts === MAX_ATTEMPTS) {
             return {
               file,
               success: false,
-              error: `Code changes detected after 5 attempts (original: ${code.length}, result: ${result.length})`,
+              error: `Code changes detected after ${MAX_ATTEMPTS} attempts (original: ${code.length}, result: ${result.length})`,
             };
           }
-          currentPrompt = makePromptMoreStrict(prompt, attempts);
         } catch (error) {
           attempts++;
-          if (attempts === 5) {
+          if (attempts === MAX_ATTEMPTS) {
             return {
               file,
               success: false,
-              error: `LLM error after 5 attempts: ${(error as Error)?.message ?? error}`,
+              error: `LLM error after ${MAX_ATTEMPTS} attempts: ${(error as Error)?.message ?? error}`,
             };
           }
-          currentPrompt = makePromptMoreStrict(prompt, attempts);
         }
       }
 

@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import { getFiles, readFile, writeOutput, outputFileExists, getDocFiles, deleteFile } from "./file-utils.js";
+import { getFiles, readFile, writeOutput, outputFileExists, getDocFiles, deleteFile, readOutputFile, extractDocHash, hashContent } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
 import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
@@ -133,16 +133,27 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
       const ext = format === "json" ? ".json" : ".md";
       const outFile: string = file.replace(/\.(js|jsx|ts|tsx)$/, ext);
 
-      // Проверяем, существует ли уже файл документации
-      if (!opts.force && outputFileExists(outDir, outFile)) {
-        return { file, success: true, skipped: true, skipReason: "exists" };
-      }
-
       // Читаем исходный код компонента
       const code: string = readFile(file);
 
       // Извлекаем структурную информацию через AST анализ
       const astInfo = extractComponentInfo(code);
+
+      // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+      if (astInfo.fileType === "skip") {
+        return { file, success: true, skipped: true, skipReason: "no-content" };
+      }
+
+      // Инкрементальность: проверяем хэш исходника
+      if (!opts.force && outputFileExists(outDir, outFile)) {
+        const existingContent = readOutputFile(outDir, outFile);
+        const existingHash = existingContent ? extractDocHash(existingContent) : null;
+        const currentHash = hashContent(code);
+        if (existingHash === currentHash) {
+          return { file, success: true, skipped: true, skipReason: "hash-match" };
+        }
+        // Хэш изменился — перегенерируем (падаем через к LLM)
+      }
 
       // Формируем специализированный промпт для генерации документации
       const prompt = getDocumentationPrompt(astInfo, code);
@@ -152,6 +163,8 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
 
       // Валидация ответа — проверяем на неправильные ответы
       if (!isValidDocumentation(doc, format)) {
+        // Короткая пауза перед retry — возможная причина: нагрузка на LLM
+        await new Promise((resolve) => setTimeout(resolve, 500));
         const strictPrompt = makeDocPromptStrict(prompt);
         doc = await callLlm(opts, strictPrompt);
       }
@@ -161,8 +174,11 @@ export async function generateDocs(opts: CliOptions): Promise<void> {
         ? convertMdToJson(doc, path.basename(file))
         : doc;
 
+      // Добавляем хэш исходника в начало файла для инкрементальности
+      const contentWithHash = `<!-- docgen-hash: ${hashContent(code)} -->\n${outputContent}`;
+
       // Записываем документацию в выходной файл
-      const outPath: string = writeOutput(outDir, outFile, outputContent);
+      const outPath: string = writeOutput(outDir, outFile, contentWithHash);
 
       return { file, success: true, outputPath: outPath };
     }, opts, label);

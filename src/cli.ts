@@ -103,6 +103,8 @@ program.action(async (opts: Record<string, any>) => {
       dryRun: opts.dryRun ?? false,
       format: opts.format === "json" ? "json" : "markdown",
       stream: opts.stream ?? false,
+      maxTokens: parseInt(opts.maxTokens, 10) || undefined,
+      temperature: parseFloat(opts.temperature) || undefined,
       ...(resolvedWiki ? { wiki: resolvedWiki } : {}),
     };
 
@@ -128,8 +130,8 @@ program.action(async (opts: Record<string, any>) => {
       await generateGraph(normalized);
     }
 
-    if (opts.wiki) {
-      await generateWiki(normalized, opts.wiki);
+    if (resolvedWiki) {
+      await generateWiki(normalized, resolvedWiki);
     }
 
     if (!opts.dryRun) {

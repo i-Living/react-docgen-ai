@@ -58,60 +58,65 @@ function isRetryableError(error: unknown): boolean {
 }
 
 /**
- * Очищает ответ LLM от артефактов каналов и метаданных
+ * Очищает ответ LLM от артефактов каналов и метаданных.
+ * Channel-маркеры (`<|channel|>`, `<|message|>`) специфичны для
+ * llama.cpp/server — очистка выполняется только при их наличии.
  * @param response - Сырой ответ от LLM API
  * @returns Очищенный текст без артефактов
  */
 function cleanLLMResponse(response: string): string {
   let cleaned = response;
-  
-  // Сначала обрабатываем частичные канал блоки (текст между channel и message)
-  const partialMatch = cleaned.match(/<\|channel\|>(.*?)<\|message\|>(.*?)<\|end\|>/s);
-  if (partialMatch) {
-    const textBefore = partialMatch[1] || '';
-    const textAfter = partialMatch[2] || '';
-    cleaned = textBefore + textAfter;
-  } else {
-    // Если нет частичных блоков, ищем полные канал блоки
-    const channelMatches = cleaned.match(/<\|channel\|>[^<]*<\|message\|>(.*?)<\|end\|>/gs);
-    if (channelMatches) {
-      const extractedContent = channelMatches.map(match => {
-        const contentMatch = match.match(/<\|message\|>(.*?)<\|end\|>/s);
-        return contentMatch ? contentMatch[1] : '';
-      }).join('');
-      cleaned = extractedContent;
+
+  // Channel-маркеры — только для llama.cpp/server провайдера
+  if (cleaned.includes("<|channel|>") || cleaned.includes("<|message|>")) {
+    // Сначала обрабатываем частичные канал блоки (текст между channel и message)
+    const partialMatch = cleaned.match(/<\|channel\|>(.*?)<\|message\|>(.*?)<\|end\|>/s);
+    if (partialMatch) {
+      const textBefore = partialMatch[1] || '';
+      const textAfter = partialMatch[2] || '';
+      cleaned = textBefore + textAfter;
     } else {
-      // Ищем только message блоки без channel
-      const messageMatches = cleaned.match(/<\|message\|>(.*?)<\|end\|>/gs);
-      if (messageMatches) {
-        const extractedContent = messageMatches.map(match => {
+      // Если нет частичных блоков, ищем полные канал блоки
+      const channelMatches = cleaned.match(/<\|channel\|>[^<]*<\|message\|>(.*?)<\|end\|>/gs);
+      if (channelMatches) {
+        const extractedContent = channelMatches.map(match => {
           const contentMatch = match.match(/<\|message\|>(.*?)<\|end\|>/s);
           return contentMatch ? contentMatch[1] : '';
         }).join('');
         cleaned = extractedContent;
+      } else {
+        // Ищем только message блоки без channel
+        const messageMatches = cleaned.match(/<\|message\|>(.*?)<\|end\|>/gs);
+        if (messageMatches) {
+          const extractedContent = messageMatches.map(match => {
+            const contentMatch = match.match(/<\|message\|>(.*?)<\|end\|>/s);
+            return contentMatch ? contentMatch[1] : '';
+          }).join('');
+          cleaned = extractedContent;
+        }
       }
     }
+
+    // Удаляем остаточные канал маркеры
+    cleaned = cleaned.replace(/<\|channel\|>[^<]*<\|message\|>/g, '');
+    cleaned = cleaned.replace(/<\|start\|><\|channel\|>[^<]*<\|message\|>/g, '');
+    cleaned = cleaned.replace(/<\|end\|>/g, '');
+    cleaned = cleaned.replace(/<\|start\|>/g, '');
   }
-  
-  // Удаляем остаточные канал маркеры
-  cleaned = cleaned.replace(/<\|channel\|>[^<]*<\|message\|>/g, '');
-  cleaned = cleaned.replace(/<\|start\|><\|channel\|>[^<]*<\|message\|>/g, '');
-  cleaned = cleaned.replace(/<\|end\|>/g, '');
-  cleaned = cleaned.replace(/<\|start\|>/g, '');
-  
+
   // Удаляем markdown блоки кода в начале
   cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/g, '');
   cleaned = cleaned.replace(/^```\n?/g, '');
-  
+
   // Удаляем markdown блоки кода в конце
   cleaned = cleaned.replace(/\n?```$/g, '');
-  
+
   // Удаляем лишние переносы строк в начале и конце
   cleaned = cleaned.trim();
-  
+
   // Удаляем дублированные переносы строк внутри текста
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-  
+
   return cleaned;
 }
 

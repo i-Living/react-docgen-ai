@@ -9,10 +9,10 @@
 import fs from "fs";
 import path from "path";
 import { CliOptions, ComponentInfo } from "./types.js";
-import { getFiles, readFile } from "./file-utils.js";
+import { getFiles, readFile, hashContent, extractWikiHash } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
-import { buildComponentGraph } from "./ast/component-graph.js";
+import { ComponentGraph } from "./types.js";
 import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
 import { processFilesConcurrent } from "./pipeline.js";
 
@@ -32,6 +32,7 @@ interface WikiFrontmatter {
   tags: string[];
   source: string;
   confidence: "high" | "medium" | "low";
+  hash: string;
 }
 
 /**
@@ -39,7 +40,27 @@ interface WikiFrontmatter {
  */
 function toFrontmatter(fm: WikiFrontmatter): string {
   const tags = fm.tags.map((t) => `  - ${t}`).join("\n");
-  return `---\ntitle: ${fm.title}\ncreated: ${fm.created}\nupdated: ${fm.updated}\ntype: ${fm.type}\ntags:\n${tags}\nsource: ${fm.source}\nconfidence: ${fm.confidence}\n---`;
+  return `---\ntitle: ${fm.title}\ncreated: ${fm.created}\nupdated: ${fm.updated}\ntype: ${fm.type}\ntags:\n${tags}\nsource: ${fm.source}\nconfidence: ${fm.confidence}\nhash: ${fm.hash}\n---`;
+}
+
+/**
+ * Извлекает тело wiki-страницы (без YAML frontmatter).
+ * Строго определяет frontmatter: начинается с `---` на первой строке,
+ * заканчивается следующим `---` на отдельной строке.
+ * Используется при hash-match для переиспользования существующей документации.
+ */
+function extractWikiBody(content: string): string {
+  const lines = content.split("\n");
+  // Frontmatter должен начинаться с --- на первой строке
+  if (lines[0]?.trim() !== "---") return content;
+  // Ищем закрывающий --- (строка, состоящая только из ---)
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i]?.trim() === "---") {
+      return lines.slice(i + 1).join("\n").trim();
+    }
+  }
+  // Нет закрывающего --- — возвращаем как есть
+  return content;
 }
 
 /**
@@ -105,20 +126,54 @@ function estimateConfidence(info: ComponentInfo): WikiFrontmatter["confidence"] 
   return "low";
 }
 
+/** Данные файла, собранные для wiki-генерации */
+type FileData = {
+  file: string;
+  code: string;
+  astInfo: ComponentInfo;
+  componentName: string;
+  doc: string;
+  success: boolean;
+  hash: string;
+};
+
+/**
+ * Строит граф компонентов напрямую из уже извлечённых FileData.
+ * Избегает повторного парсинга AST — использует astInfo.jsxTree.
+ */
+function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
+  const graph: ComponentGraph = {};
+  for (const data of fileDataList) {
+    if (!data.astInfo.exportsComponent) continue;
+    const childComponents = data.astInfo.jsxTree.filter((c: string) => /^[A-Z]/.test(c));
+    graph[data.componentName] = {
+      file: data.file,
+      children: childComponents,
+    };
+  }
+  return graph;
+}
+
 // ── Persistent state tracking ──────────────────────────────────────────────
 
-/** Хранит список страниц, которые существовали до этого запуска */
+/**
+ * Читает список существующих страниц из entities/ директории.
+ * Более надёжно, чем парсинг [[wikilinks]] из index.md —
+ * не захватывает ложные ссылки из summary-текста.
+ */
 function readExistingPages(wikiDir: string): Set<string> {
-  const indexFile = path.join(wikiDir, INDEX_FILE);
-  if (!fs.existsSync(indexFile)) return new Set();
+  const entitiesDir = path.join(wikiDir, ENTITIES_DIR);
+  if (!fs.existsSync(entitiesDir)) return new Set();
 
-  const content = fs.readFileSync(indexFile, "utf-8");
   const existing = new Set<string>();
-  // Ищем [[wikilinks]] в index.md — это и есть страницы
-  const linkRe = /\[\[([^\]]+)\]\]/g;
-  let match;
-  while ((match = linkRe.exec(content)) !== null) {
-    existing.add(match[1]!);
+  const files = fs.readdirSync(entitiesDir);
+  for (const file of files) {
+    if (file.endsWith(".md")) {
+      // Имя страницы = имя файла без расширения (slug → оригинальное имя не восстанавливается,
+      // но для сравнения с currentPages используем componentName, который тоже slugify'ится)
+      const pageName = file.replace(/\.md$/, "");
+      existing.add(pageName);
+    }
   }
   return existing;
 }
@@ -222,15 +277,6 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   console.log(`\n📖 Wiki generation: ${total} files`);
 
   // Собираем данные: для каждого файла — код, AST, документация
-  type FileData = {
-    file: string;
-    code: string;
-    astInfo: ComponentInfo;
-    componentName: string;
-    doc: string;
-    success: boolean;
-  };
-
   const fileDataList: FileData[] = [];
 
   // Используем параллельный пайплайн для получения документации
@@ -238,9 +284,29 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     const code: string = readFile(file);
     const astInfo = extractComponentInfo(code);
     const componentName = astInfo.name || path.basename(file, path.extname(file));
+    const currentHash = hashContent(code);
+
+    // Skip файлы без полезного содержимого (barrel files, пустые, re-exports only)
+    if (astInfo.fileType === "skip") {
+      return { file, success: true, skipped: true, outputPath: entitiesDir };
+    }
 
     if (!astInfo.exportsComponent) {
       // Даже для неэкспортируемых файлов создаём wiki-страницу, но confidence = low
+    }
+
+    // Инкрементальность: проверяем хэш существующей страницы
+    const pageSlug = slugify(componentName) + ".md";
+    const pagePath = path.join(entitiesDir, pageSlug);
+    if (!opts.force && fs.existsSync(pagePath)) {
+      const existingContent = fs.readFileSync(pagePath, "utf-8");
+      const existingHash = extractWikiHash(existingContent);
+      if (existingHash === currentHash) {
+        // Хэш совпадает — переиспользуем существующую документацию без LLM-вызова
+        const oldDoc = extractWikiBody(existingContent);
+        fileDataList.push({ file, code, astInfo, componentName, doc: oldDoc, success: true, hash: currentHash });
+        return { file, success: true, skipped: true, skipReason: "hash-match", outputPath: entitiesDir };
+      }
     }
 
     // Получаем LLM-документацию
@@ -256,15 +322,14 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       doc = `Компонент **${componentName}**.\n\n*Документация не сгенерирована (LLM error).*`;
     }
 
-    fileDataList.push({ file, code, astInfo, componentName, doc, success });
+    fileDataList.push({ file, code, astInfo, componentName, doc, success, hash: currentHash });
 
     return { file, success, outputPath: entitiesDir };
   }, opts, "Wiki generation");
 
   // === Шаг 2: Строим граф компонентов для перекрёстных ссылок ===
-  const graph = buildComponentGraph(
-    fileDataList.map((d) => ({ path: d.file, content: d.code })),
-  );
+  // Граф строится напрямую из уже извлечённых astInfo — без повторного парсинга
+  const graph = buildGraphFromData(fileDataList);
 
   // === Шаг 3: Определяем, какие страницы уже существуют ===
   const existingPages = readExistingPages(wikiDir);
@@ -280,7 +345,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     const pageName = data.componentName;
     const pageSlug = slugify(pageName) + ".md";
     const pagePath = path.join(entitiesDir, pageSlug);
-    currentPages.add(pageName);
+    currentPages.add(slugify(pageName));
 
     // Дети и родители из графа
     const node = graph[pageName];
@@ -292,12 +357,13 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     // frontmatter
     const fm: WikiFrontmatter = {
       title: pageName,
-      created: existingPages.has(pageName) ? getFileDate(pagePath, "created") : today(),
+      created: existingPages.has(slugify(pageName)) ? getFileDate(pagePath, "created") : today(),
       updated: today(),
       type: "entity",
       tags: ["component", data.astInfo.exportsComponent ? "exported" : "internal"],
       source: data.file,
       confidence: estimateConfidence(data.astInfo),
+      hash: data.hash,
     };
 
     // Собираем содержимое
@@ -311,7 +377,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
 
     fs.writeFileSync(pagePath, content, "utf-8");
 
-    if (existingPages.has(pageName)) {
+    if (existingPages.has(slugify(pageName))) {
       updatedPages.push(pageName);
     } else {
       createdPages.push(pageName);

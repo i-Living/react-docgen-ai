@@ -1,72 +1,72 @@
 # React Docgen AI
 
-Продвинутый CLI инструмент для автоматического документирования и аннотирования React проектов с использованием LLM.
+An advanced CLI tool for automatic documentation and annotation of React projects using LLM.
 
-## ✨ Возможности
+## ✨ Features
 
-- **AST-анализ** — глубокий анализ React компонентов (JSX, state, effects, handlers, props, дерево компонентов)
-- **Интеграция с LLM** — работа с локальными моделями (HTTP API) и облачными через OpenCode SDK
-- **Автоматическое аннотирование** — добавление JSDoc комментариев (с копированием или in-place)
-- **Генерация документации** — Markdown или JSON документация с hash-based инкрементальностью
-- **LLM Wiki** — Obsidian-совместимая wiki с `[[wikilinks]]`, YAML frontmatter и log.md
-- **Граф компонентов** — визуализация зависимостей в форматах DOT и Markdown
-- **Оптимизация токенов** — компактный AST, тип-специфичные промпты, skip-анализ, hash-кэширование
-- **TypeScript** — полностью типизированный код
+- **AST analysis** — deep analysis of React components (JSX, state, effects, handlers, props, component tree)
+- **LLM integration** — works with local models (HTTP API) and cloud models via OpenCode SDK
+- **Automatic annotation** — adds JSDoc comments (with copy or in-place modes)
+- **Documentation generation** — Markdown or JSON documentation with hash-based incremental updates
+- **LLM Wiki** — Obsidian-compatible wiki with `[[wikilinks]]`, YAML frontmatter and log.md
+- **Component graph** — dependency visualization in DOT and Markdown formats
+- **Token optimization** — compact AST, type-specific prompts, skip analysis, hash caching
+- **TypeScript** — fully typed codebase
 
-## 🚀 Установка
+## 🚀 Installation
 
 ```bash
-# Требования: Bun >= 1.3, Node.js 16+
+# Requirements: Bun >= 1.3, Node.js 16+
 bun install
 bun run build
 ```
 
-## 🎯 Использование
+## 🎯 Usage
 
 ```bash
-# Аннотирование кода
+# Annotate code
 bun run start -- --src ./src --annotate
 
-# Генерация документации
+# Generate documentation
 bun run start -- --src ./src --docs
 
-# Граф компонентов
+# Component graph
 bun run start -- --src ./src --graph
 
-# LLM Wiki (Obsidian-совместимая)
+# LLM Wiki (Obsidian-compatible)
 bun run start -- --src ./src --wiki
 ```
 
-## ⚙️ Полный список опций
+## ⚙️ Full options list
 
-| Опция | Описание | По умолчанию |
-|-------|----------|--------------|
-| `--src, -s` | Путь к исходной директории или файлу | **Обязательно** |
-| `--out, -o` | Выходная директория | `./ai-output` |
-| `--annotate` | Аннотирование с копированием | `false` |
-| `--annotate-inplace` | Аннотирование in-place | `false` |
-| `--docs` | Генерация документации | `false` |
-| `--graph` | Генерация графа компонентов | `false` |
-| `--wiki [path]` | Генерация LLM Wiki | env или — |
-| `--extensions, -e` | Расширения файлов | `js,jsx,ts,tsx` |
-| `--api` | URL LLM API | `http://localhost:8000/completions` |
-| `--opencode` | Использовать OpenCode SDK | `false` |
-| `--opencode-model` | Модель OpenCode (provider/model) | из профиля |
-| `--max-tokens` | Максимум токенов для LLM | `4096` |
-| `--temperature` | Температура LLM | `0.1` |
-| `--parallel` | Параллельных запросов к LLM | `4` |
-| `--format` | Формат документации: `markdown`, `json` | `markdown` |
-| `--force` | Перезапись существующих файлов | `false` |
-| `--dry-run` | Сухой прогон (без LLM и записи) | `false` |
-| `--verbose` | Подробный вывод | `false` |
-| `--quiet` | Тихий режим (только ошибки) | `false` |
-| `--stream` | Streaming для HTTP провайдера | `false` |
-| `--prompt-dir` | Кастомные файлы промптов | встроенные |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--src, -s` | Path to source directory or file | **Required** |
+| `--out, -o` | Output directory | `./ai-output` |
+| `--annotate` | Annotate with copy | `false` |
+| `--annotate-inplace` | Annotate in-place | `false` |
+| `--docs` | Generate documentation | `false` |
+| `--graph` | Generate component graph | `false` |
+| `--wiki [path]` | Generate LLM Wiki | env or — |
+| `--extensions, -e` | File extensions | `js,jsx,ts,tsx` |
+| `--api` | LLM API URL | `http://localhost:8000/completions` |
+| `--opencode` | Use OpenCode SDK | `false` |
+| `--opencode-model` | OpenCode model (provider/model) | from profile |
+| `--max-tokens` | Max tokens for LLM | `4096` |
+| `--temperature` | LLM temperature | `0.1` |
+| `--parallel` | Parallel LLM requests | `4` |
+| `--format` | Documentation format: `markdown`, `json` | `markdown` |
+| `--force` | Overwrite existing files | `false` |
+| `--dry-run` | Dry run (no LLM, no writes) | `false` |
+| `--verbose` | Verbose output | `false` |
+| `--quiet` | Quiet mode (errors only) | `false` |
+| `--stream` | Stream output for HTTP provider | `false` |
+| `--prompt-dir` | Custom prompt files | built-in |
 
-### Конфигурация через .env
+### Configuration via .env
 
-| Переменная | Аналог CLI | По умолчанию |
-|------------|-----------|--------------|
+| Variable | CLI equivalent | Default |
+|----------|----------------|---------|
 | `LLM_API_URL` | `--api` | `http://localhost:8000/completions` |
 | `LLM_MAX_TOKENS` | `--max-tokens` | `4096` |
 | `LLM_TEMPERATURE` | `--temperature` | `0.1` |
@@ -78,74 +78,74 @@ bun run start -- --src ./src --wiki
 
 ## 📖 LLM Wiki
 
-Режим `--wiki` создаёт Obsidian-совместимую документацию в стиле [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+The `--wiki` mode creates Obsidian-compatible documentation in the style of [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
 
 ```
 wiki/
-├── index.md           # Каталог всех компонентов
-├── log.md             # История изменений
-├── entities/          # Страницы компонентов
+├── index.md           # Component catalog
+├── log.md             # Change history
+├── entities/          # Component pages
 │   ├── button.md
 │   └── header.md
-└── _archive/          # Архивированные страницы
+└── _archive/          # Archived pages
 ```
 
-**Фичи:**
-- Персистентность — при повторном запуске обновляется только изменившееся (hash-based)
-- `[[wikilinks]]` на основе графа зависимостей
+**Features:**
+- Persistence — on re-run, only changed files are updated (hash-based)
+- `[[wikilinks]]` based on the dependency graph
 - YAML frontmatter (title, created, updated, tags, source, confidence, hash)
-- Archiving — при удалении файла страница уходит в `_archive/`
-- История изменений в `log.md`
+- Archiving — when a source file is deleted, its wiki page moves to `_archive/`
+- Change history in `log.md`
 
-## 🧠 Оптимизация токенов
+## 🧠 Token optimization
 
-Четырёхуровневая система минимизации затрат LLM:
+Four-tier system for minimizing LLM costs:
 
-1. **Skip-анализ** — файлы без полезного содержимого (чистые типы, пустые утилиты) пропускаются до вызова LLM
-2. **Hash-инкрементальность** — SHA-256 хэш содержимого файла; при совпадении с предыдущим запуском — переиспользование документации без LLM
-3. **Тип-специфичные промпты** — для каждого типа файла (component, hook, context, store, util, types) — отдельный краткий промпт (вместо универсального 85-строчного)
-4. **Компактный AST** — текстовая сигнатура вместо `JSON.stringify` (50–100 токенов вместо 600–800); автовыбор: ≤100 строк → только сигнатуры, >100 строк → сигнатуры + код
+1. **Skip analysis** — files with no meaningful content (pure types, empty utilities) are skipped before LLM calls
+2. **Hash incremental updates** — SHA-256 hash of file content; on match with a previous run, existing documentation is reused without calling the LLM
+3. **Type-specific prompts** — each file type (component, hook, context, store, util, types) gets its own concise prompt (instead of a universal 85-line one)
+4. **Compact AST** — text signature instead of `JSON.stringify` (50–100 tokens vs 600–800); auto-selection: ≤100 lines → signatures only, >100 lines → signatures + code
 
-**Эффект:** ~80% экономии на payload и ~82% на промпте.
+**Impact:** ~80% savings on payload and ~82% on prompt size.
 
-## 🔧 Разработка
+## 🔧 Development
 
-### Скрипты
+### Scripts
 
-| Команда | Описание |
-|---------|----------|
-| `bun run build` | Компиляция TypeScript |
-| `bun run dev` | Автопересборка |
-| `bun run start` | Запуск |
-| `bun run test` | Основные тесты (без mock) |
-| `bun run test:mock` | Тесты с mock-модулями |
-| `bun run test:all` | Все тесты |
-| `bun run typecheck` | Проверка типов |
-| `bun run clean` | Очистка dist |
+| Command | Description |
+|---------|-------------|
+| `bun run build` | Compile TypeScript |
+| `bun run dev` | Auto-rebuild on changes |
+| `bun run start` | Run |
+| `bun run test` | Core tests (no mocks) |
+| `bun run test:mock` | Tests with mock modules |
+| `bun run test:all` | All tests |
+| `bun run typecheck` | Type checking |
+| `bun run clean` | Clean dist |
 
-### Структура проекта
+### Project structure
 
 ```
 src/
-├── cli.ts                 # Командная строка
-├── types.ts               # Типы и интерфейсы
-├── llm.ts                 # Фасад LLM (HTTP / OpenCode)
-├── llm-client.ts          # HTTP клиент с retry
-├── opencode-provider.ts   # Провайдер OpenCode
-├── prompt-loader.ts       # Загрузка тип-специфичных промптов
-├── pipeline.ts            # Параллельный пайплайн
-├── progress.ts            # Прогресс-бар
-├── annotator.ts           # Аннотирование
-├── docgen.ts              # Генерация документации
-├── wiki-generator.ts      # Генератор LLM Wiki
-├── generate-graph.ts      # Граф компонентов
-├── file-utils.ts          # Утилиты файлов + SHA-256 хэш
-├── env.ts                 # .env загрузка
+├── cli.ts                 # CLI entry point
+├── types.ts               # Types and interfaces
+├── llm.ts                 # LLM facade (HTTP / OpenCode)
+├── llm-client.ts          # HTTP client with retry
+├── opencode-provider.ts   # OpenCode provider
+├── prompt-loader.ts       # Type-specific prompt loader
+├── pipeline.ts            # Parallel pipeline
+├── progress.ts            # Progress bar
+├── annotator.ts           # Annotation engine
+├── docgen.ts              # Documentation generator
+├── wiki-generator.ts      # LLM Wiki generator
+├── generate-graph.ts      # Component graph generator
+├── file-utils.ts          # File utilities + SHA-256 hash
+├── env.ts                 # .env loader
 ├── ast/
-│   ├── ast-extractor.ts   # AST экстрактор + file type detection
-│   ├── compact-format.ts  # Компактный AST формат
-│   └── component-graph.ts # Граф зависимостей
-└── prompts/               # Тип-специфичные промпты
+│   ├── ast-extractor.ts   # AST extractor + file type detection
+│   ├── compact-format.ts  # Compact AST format
+│   └── component-graph.ts # Dependency graph
+└── prompts/               # Type-specific prompts
     ├── annotation.txt
     ├── component.txt
     ├── hook.txt
@@ -155,21 +155,21 @@ src/
     └── types.txt
 ```
 
-## 🧪 Тестирование
+## 🧪 Testing
 
-Проект использует **Bun test** (единый раннер, без Jest).
+The project uses **Bun test** (unified runner, no Jest).
 
 ```bash
-# Основные 98 тестов (чистые функции, AST, pipeline)
+# Core 98 tests (pure functions, AST, pipeline)
 bun run test
 
-# Mock-тесты (изолированы из-за mock.module)
+# Mock tests (isolated due to mock.module)
 bun run test:mock
 
-# Все 117 тестов
+# All 117 tests
 bun run test:all
 ```
 
-## 🤝 Вклад
+## 🤝 Contributing
 
-Приветствуются PR и issues!
+PRs and issues are welcome!

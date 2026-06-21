@@ -1,0 +1,18 @@
+You are an expert in documenting JavaScript/TypeScript utilities.
+
+AST Signatures:
+{{AST_INFO}}
+
+Source code:
+{{CODE}}
+
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — function/module purpose
+2. **Parameters** — all parameters with types and descriptions
+3. **Return Value** — type and description
+4. **Algorithm** — how the function works
+5. **Complexity** — time and space (if applicable)
+6. **Limitations** — edge cases, known limitations
+
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

@@ -1,256 +1,175 @@
 # React Docgen AI
 
-Продвинутый CLI инструмент для автоматического документирования и аннотирования React проектов с использованием локального LLM.
+Продвинутый CLI инструмент для автоматического документирования и аннотирования React проектов с использованием LLM.
 
 ## ✨ Возможности
 
-- **AST-анализ** - глубокий анализ структуры React компонентов (JSX, state, effects, handlers, дерево компонентов)
-- **Интеграция с LLM** - работа с локальными LLM моделями (gpt-oss-20b и совместимыми)
-- **Автоматическое аннотирование** - добавление подробных JSDoc комментариев к коду
-- **Генерация документации** - создание подробной Markdown документации
-- **Генерация графа компонентов** - визуализация зависимостей в форматах DOT и Markdown
-- **TypeScript поддержка** - полностью типизированный код с поддержкой современного JavaScript
+- **AST-анализ** — глубокий анализ React компонентов (JSX, state, effects, handlers, props, дерево компонентов)
+- **Интеграция с LLM** — работа с локальными моделями (HTTP API) и облачными через OpenCode SDK
+- **Автоматическое аннотирование** — добавление JSDoc комментариев (с копированием или in-place)
+- **Генерация документации** — Markdown или JSON документация с hash-based инкрементальностью
+- **LLM Wiki** — Obsidian-совместимая wiki с `[[wikilinks]]`, YAML frontmatter и log.md
+- **Граф компонентов** — визуализация зависимостей в форматах DOT и Markdown
+- **Оптимизация токенов** — компактный AST, тип-специфичные промпты, skip-анализ, hash-кэширование
+- **TypeScript** — полностью типизированный код
 
-## 🚀 Установка и настройка
+## 🚀 Установка
 
-### Требования
-- Node.js 16+
-- npm или yarn
-- Локальный LLM сервер (например, запущенный на localhost:8000)
-
-### Установка зависимостей
 ```bash
-npm install
+# Требования: Bun >= 1.3, Node.js 16+
+bun install
+bun run build
 ```
 
-### Компиляция TypeScript
+## 🎯 Использование
+
 ```bash
-npm run build
+# Аннотирование кода
+bun run start -- --src ./src --annotate
+
+# Генерация документации
+bun run start -- --src ./src --docs
+
+# Граф компонентов
+bun run start -- --src ./src --graph
+
+# LLM Wiki (Obsidian-совместимая)
+bun run start -- --src ./src --wiki
 ```
 
-### Разработка с автопересборкой
-```bash
-npm run dev
-```
-
-## 🎯 Примеры использования
-
-### 1. Автоматическое аннотирование кода
-Добавляет подробные JSDoc комментарии к React компонентам:
-```bash
-# Обработка директории
-npx react-docgen-ai --src ./src --annotate --out ./annotated
-
-# Обработка отдельного файла
-npx react-docgen-ai --src ./src/components/Button.tsx --annotate --out ./annotated
-```
-
-### 2. Аннотирование in-place
-Добавляет аннотации непосредственно в исходные файлы (без создания копий):
-```bash
-# Обработка директории
-npx react-docgen-ai --src ./src --annotate-inplace
-
-# Обработка отдельного файла
-npx react-docgen-ai --src ./src/components/Button.tsx --annotate-inplace
-```
-
-> **Примечание:** Файлы с тегом `@fileoverview` пропускаются по умолчанию. Используйте `--force` для их обработки:
-> ```bash
-> npx react-docgen-ai --src ./src --annotate-inplace --force
-> ```
-
-### 3. Генерация документации
-Создает подробную Markdown документацию:
-```bash
-# Обработка директории
-npx react-docgen-ai --src ./src --docs --out ./docs
-
-# Обработка отдельного файла
-npx react-docgen-ai --src ./src/components/Button.tsx --docs --out ./docs
-```
-
-> **Примечание:** Файлы документации, для которых уже существует `.md` файл в выходной директории, пропускаются по умолчанию. Используйте `--force` для их перезаписи:
-> ```bash
-> npx react-docgen-ai --src ./src --docs --force
-> ```
-> 
-> При запуске также автоматически удаляются устаревшие файлы документации (для которых нет соответствующих исходных файлов).
-
-### 4. Генерация графа компонентов
-Создает визуализацию зависимостей компонентов:
-```bash
-# Обработка директории
-npx react-docgen-ai --src ./src --graph --out ./graphs
-
-# Обработка отдельного файла
-npx react-docgen-ai --src ./src/components/Button.tsx --graph --out ./graphs
-```
-
-### 5. Полная обработка проекта
-Выполняет все операции одновременно:
-```bash
-npx react-docgen-ai --src ./src --annotate --docs --graph --out ./output
-```
-
-### 6. Поддержка разных форматов файлов
-По умолчанию обрабатываются файлы с расширениями `js,jsx,ts,tsx`:
-```bash
-# Только TypeScript файлы
-npx react-docgen-ai --src ./src --annotate --extensions ts,tsx
-
-# Только JavaScript файлы
-npx react-docgen-ai --src ./src --annotate --extensions js,jsx
-```
-
-## ⚙️ Настройка LLM
-
-### Запуск локального LLM сервера
-```bash
-# Пример с gpt-oss-20b
-python server.py --model_path ./gpt-oss-20b --port 8000
-```
-
-### Настройка API URL
-```bash
-npx react-docgen-ai --src ./src --annotate --api http://localhost:8000/completions
-```
-
-## 📚 API Reference
-
-### Опции командной строки
+## ⚙️ Полный список опций
 
 | Опция | Описание | По умолчанию |
 |-------|----------|--------------|
-| `--src, -s` | Путь к исходной директории или отдельному файлу | **Обязательно** |
+| `--src, -s` | Путь к исходной директории или файлу | **Обязательно** |
 | `--out, -o` | Выходная директория | `./ai-output` |
-| `--annotate` | Включить аннотирование кода | `false` |
-| `--annotate-inplace` | Аннотировать непосредственно в исходных файлах | `false` |
-| `--force` | Принудительно обрабатывать файлы (игнорировать @fileoverview для аннотирования, перезаписывать существующую документацию) | `false` |
-| `--docs` | Включить генерацию документации | `false` |
-| `--graph` | Включить генерацию графа | `false` |
-| `--extensions, -e` | Расширения файлов (только для директорий) | `js,jsx,ts,tsx` |
+| `--annotate` | Аннотирование с копированием | `false` |
+| `--annotate-inplace` | Аннотирование in-place | `false` |
+| `--docs` | Генерация документации | `false` |
+| `--graph` | Генерация графа компонентов | `false` |
+| `--wiki [path]` | Генерация LLM Wiki | env или — |
+| `--extensions, -e` | Расширения файлов | `js,jsx,ts,tsx` |
 | `--api` | URL LLM API | `http://localhost:8000/completions` |
-| `--max-tokens` | Максимальное количество токенов | `4096` |
-| `--temperature` | Температура генерации LLM | `0.1` |
+| `--opencode` | Использовать OpenCode SDK | `false` |
+| `--opencode-model` | Модель OpenCode (provider/model) | из профиля |
+| `--max-tokens` | Максимум токенов для LLM | `4096` |
+| `--temperature` | Температура LLM | `0.1` |
+| `--parallel` | Параллельных запросов к LLM | `4` |
+| `--format` | Формат документации: `markdown`, `json` | `markdown` |
+| `--force` | Перезапись существующих файлов | `false` |
+| `--dry-run` | Сухой прогон (без LLM и записи) | `false` |
+| `--verbose` | Подробный вывод | `false` |
+| `--quiet` | Тихий режим (только ошибки) | `false` |
+| `--stream` | Streaming для HTTP провайдера | `false` |
+| `--prompt-dir` | Кастомные файлы промптов | встроенные |
 
-> **Примечание:** При указании отдельного файла через `--src`, параметр `--extensions` игнорируется. Файл должен иметь одно из расширений: `js, jsx, ts, tsx`. При указании директории обрабатываются все файлы с указанными расширениями рекурсивно.
+### Конфигурация через .env
 
-### Структура выходных файлов
+| Переменная | Аналог CLI | По умолчанию |
+|------------|-----------|--------------|
+| `LLM_API_URL` | `--api` | `http://localhost:8000/completions` |
+| `LLM_MAX_TOKENS` | `--max-tokens` | `4096` |
+| `LLM_TEMPERATURE` | `--temperature` | `0.1` |
+| `LLM_API_MODEL` | `--opencode-model` | `deepseek-v4-flash` |
+| `DOCGEN_OUT` | `--out` | `./ai-output` |
+| `DOCGEN_EXTENSIONS` | `--extensions` | `js,jsx,ts,tsx` |
+| `DOCGEN_WIKI` | `--wiki` | — |
+| `DOCGEN_PARALLEL` | `--parallel` | `4` |
+
+## 📖 LLM Wiki
+
+Режим `--wiki` создаёт Obsidian-совместимую документацию в стиле [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
 
 ```
-ai-output/
-├── annotated/          # Аннотированный код
-│   └── src/
-│       └── components/
-├── docs/              # Markdown документация
-│   └── src/
-│       └── components/
-└── graph/             # Граф компонентов
-    ├── components.dot
-    └── components.md
+wiki/
+├── index.md           # Каталог всех компонентов
+├── log.md             # История изменений
+├── entities/          # Страницы компонентов
+│   ├── button.md
+│   └── header.md
+└── _archive/          # Архивированные страницы
 ```
 
-## 🔧 Сборка и разработка
+**Фичи:**
+- Персистентность — при повторном запуске обновляется только изменившееся (hash-based)
+- `[[wikilinks]]` на основе графа зависимостей
+- YAML frontmatter (title, created, updated, tags, source, confidence, hash)
+- Archiving — при удалении файла страница уходит в `_archive/`
+- История изменений в `log.md`
 
-### Доступные скрипты
-- `npm run build` - компиляция TypeScript в JavaScript
-- `npm run dev` - разработка с автопересборкой
-- `npm run start` - запуск скомпилированного кода
-- `npm run clean` - очистка директории dist
+## 🧠 Оптимизация токенов
+
+Четырёхуровневая система минимизации затрат LLM:
+
+1. **Skip-анализ** — файлы без полезного содержимого (чистые типы, пустые утилиты) пропускаются до вызова LLM
+2. **Hash-инкрементальность** — SHA-256 хэш содержимого файла; при совпадении с предыдущим запуском — переиспользование документации без LLM
+3. **Тип-специфичные промпты** — для каждого типа файла (component, hook, context, store, util, types) — отдельный краткий промпт (вместо универсального 85-строчного)
+4. **Компактный AST** — текстовая сигнатура вместо `JSON.stringify` (50–100 токенов вместо 600–800); автовыбор: ≤100 строк → только сигнатуры, >100 строк → сигнатуры + код
+
+**Эффект:** ~80% экономии на payload и ~82% на промпте.
+
+## 🔧 Разработка
+
+### Скрипты
+
+| Команда | Описание |
+|---------|----------|
+| `bun run build` | Компиляция TypeScript |
+| `bun run dev` | Автопересборка |
+| `bun run start` | Запуск |
+| `bun run test` | Основные тесты (без mock) |
+| `bun run test:mock` | Тесты с mock-модулями |
+| `bun run test:all` | Все тесты |
+| `bun run typecheck` | Проверка типов |
+| `bun run clean` | Очистка dist |
 
 ### Структура проекта
+
 ```
-react-docgen-ai/
-├── src/
-│   ├── types.ts              # TypeScript типы и интерфейсы
-│   ├── cli.ts                # Командная строка
-│   ├── annotator.ts          # Модуль аннотирования
-│   ├── docgen.ts             # Генератор документации
-│   ├── generate-graph.ts     # Построитель графа
-│   ├── file-utils.ts         # Утилиты файлов
-│   ├── llm-client.ts         # Клиент LLM
-│   └── ast/                  # AST анализ
-│       ├── ast-extractor.ts  # Экстрактор компонентов
-│       └── component-graph.ts # Граф зависимостей
-├── bin/
-│   └── react-docgen-ai.js    # Entry point
-├── dist/                     # Скомпилированный JS
-├── tsconfig.json             # TypeScript конфигурация
-└── package.json              # NPM конфигурация
+src/
+├── cli.ts                 # Командная строка
+├── types.ts               # Типы и интерфейсы
+├── llm.ts                 # Фасад LLM (HTTP / OpenCode)
+├── llm-client.ts          # HTTP клиент с retry
+├── opencode-provider.ts   # Провайдер OpenCode
+├── prompt-loader.ts       # Загрузка тип-специфичных промптов
+├── pipeline.ts            # Параллельный пайплайн
+├── progress.ts            # Прогресс-бар
+├── annotator.ts           # Аннотирование
+├── docgen.ts              # Генерация документации
+├── wiki-generator.ts      # Генератор LLM Wiki
+├── generate-graph.ts      # Граф компонентов
+├── file-utils.ts          # Утилиты файлов + SHA-256 хэш
+├── env.ts                 # .env загрузка
+├── ast/
+│   ├── ast-extractor.ts   # AST экстрактор + file type detection
+│   ├── compact-format.ts  # Компактный AST формат
+│   └── component-graph.ts # Граф зависимостей
+└── prompts/               # Тип-специфичные промпты
+    ├── annotation.txt
+    ├── component.txt
+    ├── hook.txt
+    ├── context.txt
+    ├── store.txt
+    ├── util.txt
+    └── types.txt
 ```
 
-## 🤖 Возможности AST анализа
+## 🧪 Тестирование
 
-- **Извлечение компонентов** - автоматическое определение React компонентов
-- **Анализ props** - типы и значения по умолчанию
-- **State анализ** - хуки useState и их инициализация
-- **Effect анализ** - useEffect и зависимости
-- **JSX дерево** - структура вложенных компонентов
-- **Экспорт detection** - определение экспортируемых компонентов
+Проект использует **Bun test** (единый раннер, без Jest).
 
-## 📈 Генерация графа
-
-### DOT формат
-Генерирует файл `components.dot` для визуализации в Graphviz:
 ```bash
-# Создание PNG изображения
-dot -Tpng components.dot -o components.png
+# Основные 98 тестов (чистые функции, AST, pipeline)
+bun run test
 
-# Создание SVG
-dot -Tsvg components.dot -o components.svg
+# Mock-тесты (изолированы из-за mock.module)
+bun run test:mock
 
-# Создание PDF
-dot -Tpdf components.dot -o components.pdf
+# Все 117 тестов
+bun run test:all
 ```
 
-### Markdown формат
-Создает читаемое дерево компонентов в Markdown с подробным описанием.
+## 🤝 Вклад
 
-## 🛠️ Технические детали
-
-### TypeScript особенности
-- Полная типизация всех модулей
-- Строгий режим TypeScript
-- Генерация деклараций (.d.ts)
-- Source maps для отладки
-
-### Поддерживаемые технологии
-- React (JSX/TSX)
-- Babel AST parser
-- Современный ES модули
-- Node.js ESM
-
-## 🔍 Troubleshooting
-
-### Частые проблемы
-
-**LLM API недоступен**
-```
-❌ Ошибка: LLM API error: connect ECONNREFUSED
-```
-**Решение:** Убедитесь, что LLM сервер запущен и доступен по указанному URL.
-
-**TypeScript ошибки**
-```
-❌ Cannot find module 'globby'
-```
-**Решение:** Установите зависимости командой `npm install`.
-
-**Права доступа**
-```
-❌ Error: EACCES: permission denied
-```
-**Решение:** Проверьте права доступа к директориям или запустите с правами администратора.
-
-## 📄 Лицензия
-
-MIT License
-
-## 🤝 Вклад в проект
-
-Приветствуются pull requests и issue reports!
-
----
-
-**Создано с ❤️ для улучшения документирования React проектов**
+Приветствуются PR и issues!

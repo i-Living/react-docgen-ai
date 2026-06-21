@@ -25,5 +25,9 @@ out/
 logs
 *.log
 
+# Test artifacts
+wiki-test/
+test-out/
+
 # TypeScript cache
 *.tsbuildinfo

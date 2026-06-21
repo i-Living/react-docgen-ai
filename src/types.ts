@@ -1,128 +1,181 @@
 /**
- * @fileoverview Базовые типы и интерфейсы для react-docgen-ai
+ * @fileoverview Base types and interfaces for react-docgen-ai
  * @author AI Docgen
  * @version 1.0.0
  */
 
 /**
- * Интерфейс для опций командной строки
+ * Interface for CLI options
  */
 export interface CliOptions {
-  /** Путь к исходной директории */
+  /** Source directory path */
   src: string;
-  /** Выходная директория */
+  /** Output directory */
   out: string;
-  /** Нужно ли аннотировать код комментариями */
+  /** Whether to annotate code with comments */
   annotate: boolean;
-  /** Нужно ли генерировать документацию */
-  docs: boolean;
-  /** Нужно ли генерировать граф компонентов */
+  /** Whether to annotate code in-place */
+  annotateInplace?: boolean;
+  /** Whether to generate component graph */
   graph: boolean;
-  /** Список расширений файлов */
+  /** List of file extensions */
   extensions: string;
-  /** URL API для LLM */
+  /** URL for LLM API */
   api: string;
-  /** Принудительная обработка файлов с @fileoverview */
+  /** Force process files with @fileoverview */
   force?: boolean;
+  /** Use OpenCode SDK instead of HTTP */
+  opencode?: boolean;
+  /** Model for LLM (format: provider/model for OpenCode SDK, or model name for HTTP) */
+  opencodeModel?: string;
+  /** Number of parallel LLM requests (default 4) */
+  parallel?: number;
+  /** Directory with custom prompts */
+  promptDir?: string;
+  /** Dry-run mode (no LLM calls or writes) */
+  dryRun?: boolean;
+  /** Use streaming for HTTP provider */
+  stream?: boolean;
+  /** Maximum tokens for LLM requests */
+  maxTokens?: number | undefined;
+  /** LLM generation temperature (0.0 - 1.0) */
+  temperature?: number | undefined;
+  /** Directory for LLM Wiki generation (Karpathy-style) */
+  wiki?: string;
+  /** Verbose output (default false) */
+  verbose?: boolean;
+  /** Quiet mode — minimal logging (default false) */
+  quiet?: boolean;
 }
 
 /**
- * Интерфейс для информации о React компоненте, извлеченной из AST
+ * File type determined via AST analysis.
+ * Used for:
+ * - Selecting type-specific prompt (step 3)
+ * - Skipping files without useful content (saves LLM tokens)
+ * - Compact representation (step 4)
+ */
+export type FileType = "component" | "hook" | "context" | "store" | "util" | "types" | "skip";
+
+/**
+ * Interface for React component info extracted from AST
  */
 export interface ComponentInfo {
-  /** Имя компонента */
+  /** Component name */
   name: string | null;
-  /** Список props */
+  /** Props list */
   props: ComponentProp[];
-  /** Список состояний */
+  /** State list */
   state: ComponentState[];
-  /** Список эффектов */
+  /** Effects list */
   effects: ComponentEffect[];
-  /** Обработчики событий */
+  /** Event handlers */
   handlers: ComponentHandler[];
-  /** Дерево JSX элементов */
+  /** JSX element tree */
   jsxTree: string[];
-  /** Экспортирует ли файл компонент по умолчанию */
+  /** Whether file exports a default component */
   exportsComponent: boolean;
+  /** File type determined via AST (component/hook/context/util/types/skip) */
+  fileType: FileType;
+  /** Found createContext (React Context) */
+  hasContext: boolean;
+  /** Found state management (Zustand/Jotai/Redux) */
+  hasStore: boolean;
 }
 
 /**
- * Интерфейс для props компонента
+ * Interface for component props
  */
 export interface ComponentProp {
-  /** Имя пропса */
+  /** Prop name */
   name: string;
-  /** Тип пропса */
+  /** Prop type */
   type?: string;
-  /** Обязательный ли пропс */
+  /** Is prop required */
   required?: boolean;
-  /** Значение по умолчанию */
-  defaultValue?: any;
+  /** Default value */
+  defaultValue?: unknown;
 }
 
 /**
- * Интерфейс для состояния компонента
+ * Interface for component state
  */
 export interface ComponentState {
-  /** Имя переменной состояния */
+  /** State variable name */
   variable: string;
-  /** Инициализирующее значение */
-  initialValue?: any;
+  /** Initial value */
+  initialValue?: unknown;
 }
 
 /**
- * Интерфейс для эффектов компонента
+ * Interface for component effects
  */
 export interface ComponentEffect {
-  /** Зависимости эффекта */
+  /** Effect dependencies */
   deps: string[];
-  /** Дополнительные настройки эффекта */
-  options?: any;
+  /** Additional effect options */
+  options?: unknown;
 }
 
 /**
- * Интерфейс для обработчиков событий
+ * Interface for event handlers
  */
 export interface ComponentHandler {
-  /** Имя обработчика */
+  /** Handler name */
   name: string;
-  /** Параметры обработчика */
+  /** Handler parameters */
   params?: string[];
-  /** Тип события (если применимо) */
+  /** Event type (if applicable) */
   eventType?: string;
 }
 
 /**
- * Интерфейс для файлов в графе компонентов
+ * Interface for files in component graph
  */
 export interface FileInfo {
-  /** Путь к файлу */
+  /** File path */
   path: string;
-  /** Содержимое файла */
+  /** File content */
   content: string;
 }
 
 /**
- * Интерфейс для узла в графе компонентов
+ * Interface for node in component graph
  */
 export interface GraphNode {
-  /** Путь к файлу компонента */
+  /** Component file path */
   file: string;
-  /** Дочерние компоненты */
+  /** Child components */
   children: string[];
 }
 
 /**
- * Тип для графа компонентов
+ * Type for component graph
  */
 export type ComponentGraph = Record<string, GraphNode>;
 
 /**
- * Опции для LLM API вызова
+ * Options for LLM API call
  */
 export interface LlmApiOptions {
-  /** Максимальное количество токенов */
+  /** Maximum tokens */
   maxTokens?: number;
-  /** Температура генерации */
+  /** Generation temperature */
   temperature?: number;
+  /** Use streaming */
+  stream?: boolean;
+  /** Model for HTTP provider (e.g. glm-5.2, deepseek-v4-flash) */
+  model?: string;
+}
+
+/**
+ * Result of processing one file in pipeline
+ */
+export interface FileResult {
+  file: string;
+  success: boolean;
+  skipped?: boolean;
+  skipReason?: string;
+  error?: string;
+  outputPath?: string;
 }

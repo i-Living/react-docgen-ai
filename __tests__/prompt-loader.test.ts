@@ -1,20 +1,20 @@
 /**
- * @fileoverview Тесты для модуля prompt-loader
+ * @fileoverview Tests for prompt-loader module
  * @author AI Docgen
  * @version 1.0.0
  */
 
-import fs from 'fs-extra';
 import path from 'path';
+import fs from 'fs';
+import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
 
 // Import the source files, not the dist files
 import { loadPrompt, getAnnotationPrompt, getDocumentationPrompt } from '../src/prompt-loader';
 
 describe('Prompt Loader', () => {
-  const mockFs = fs as jest.Mocked<typeof fs>;
-  
   beforeEach(() => {
-    jest.clearAllMocks();
+    spyOn(fs, 'existsSync').mockRestore();
+    spyOn(fs, 'readFileSync').mockRestore();
   });
 
   describe('loadPrompt', () => {
@@ -22,19 +22,19 @@ describe('Prompt Loader', () => {
     const testPromptContent = 'This is a test prompt with {{KEY}} placeholder';
     
     it('should load prompt from file and replace placeholders', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(testPromptContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => testPromptContent);
       
       const result = loadPrompt('test', { KEY: 'replaced value' });
       
-      expect(mockFs.readFileSync).toHaveBeenCalledWith(testPromptPath, 'utf8');
+      expect(fs.readFileSync).toHaveBeenCalledWith(testPromptPath, 'utf8');
       expect(result).toBe('This is a test prompt with replaced value placeholder');
     });
 
     it('should handle multiple placeholders', () => {
       const contentWithMultiplePlaceholders = 'First: {{KEY1}}, Second: {{KEY2}}, Third: {{KEY3}}';
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(contentWithMultiplePlaceholders);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithMultiplePlaceholders);
       
       const result = loadPrompt('test', {
         KEY1: 'value1',
@@ -46,14 +46,14 @@ describe('Prompt Loader', () => {
     });
 
     it('should throw error when prompt file does not exist', () => {
-      mockFs.existsSync.mockReturnValue(false);
+      spyOn(fs, 'existsSync').mockImplementation(() => false);
       
-      expect(() => loadPrompt('nonexistent', {})).toThrow('Промпт не найден:');
+      expect(() => loadPrompt('nonexistent', {})).toThrow('Prompt not found:');
     });
 
     it('should handle empty replacements object', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(testPromptContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => testPromptContent);
       
       const result = loadPrompt('test', {});
       
@@ -62,8 +62,8 @@ describe('Prompt Loader', () => {
 
     it('should handle prompts with no placeholders', () => {
       const contentWithoutPlaceholders = 'This prompt has no placeholders';
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(contentWithoutPlaceholders);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithoutPlaceholders);
       
       const result = loadPrompt('test', { ANY_KEY: 'value' });
       
@@ -72,8 +72,8 @@ describe('Prompt Loader', () => {
 
     it('should escape special regex characters in placeholders', () => {
       const contentWithSpecialChars = 'Prompt with {{KEY[0]}} and {{KEY[1]}}';
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(contentWithSpecialChars);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => contentWithSpecialChars);
       
       const result = loadPrompt('test', { 'KEY[0]': 'value0', 'KEY[1]': 'value1' });
       
@@ -85,8 +85,8 @@ describe('Prompt Loader', () => {
 Line 2 with {{KEY2}}
 Line 3 with {{KEY3}}`;
       
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(multilineContent);
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => multilineContent);
       
       const result = loadPrompt('test', {
         KEY1: 'replaced1',
@@ -110,20 +110,23 @@ Line 3 with replaced3`;
       effects: [{ deps: ['isLoading'] }],
       handlers: [],
       jsxTree: ['button'],
-      exportsComponent: true
+      exportsComponent: true,
+      fileType: 'component' as const,
+      hasContext: false,
+      hasStore: false,
     };
 
     const componentCode = 'function Button() { return <button>Click</button>; }';
 
-    it('should generate annotation prompt with AST info and code', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('AST_INFO: {{AST_INFO}}\nCODE: {{CODE}}');
+    it('should generate annotation prompt with compact AST info and code', () => {
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'AST_INFO: {{AST_INFO}}\nCODE: {{CODE}}');
       
       const result = getAnnotationPrompt(astInfo, componentCode);
       
       expect(result).toContain('AST_INFO:');
       expect(result).toContain('CODE:');
-      expect(result).toContain(JSON.stringify(astInfo, null, 2));
+      expect(result).toContain('Name: Button');
       expect(result).toContain(componentCode);
     });
 
@@ -149,15 +152,19 @@ Line 3 with replaced3`;
           { name: 'handleReset', params: [] }
         ],
         jsxTree: ['div', 'form', 'input', 'button', 'ErrorMessage'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
+        hasStore: false,
       };
 
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getAnnotationPrompt(complexAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(complexAstInfo, null, 2));
+      expect(result).toContain('Name: ComplexComponent');
+      expect(result).toContain('State: [isLoading, error, formData]');
       expect(result).toContain(componentCode);
     });
 
@@ -169,15 +176,18 @@ Line 3 with replaced3`;
         effects: [],
         handlers: [],
         jsxTree: [],
-        exportsComponent: false
+        exportsComponent: false,
+        fileType: 'skip' as const,
+        hasContext: false,
+        hasStore: false,
       };
 
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getAnnotationPrompt(emptyAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(emptyAstInfo, null, 2));
+      expect(result).toContain('Type: skip');
       expect(result).toContain(componentCode);
     });
   });
@@ -190,20 +200,23 @@ Line 3 with replaced3`;
       effects: [],
       handlers: [],
       jsxTree: ['div', 'Avatar', 'h3', 'p'],
-      exportsComponent: true
+      exportsComponent: true,
+      fileType: 'component' as const,
+      hasContext: false,
     };
 
     const componentCode = 'const UserCard = ({ user }) => <div><Avatar />{user.name}</div>';
 
-    it('should generate documentation prompt with AST info and code', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('Generate docs for:\n{{AST_INFO}}\n{{CODE}}');
+    it('should generate documentation prompt with compact AST info', () => {
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'Generate docs for:\n{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(astInfo, componentCode);
       
       expect(result).toContain('Generate docs for:');
-      expect(result).toContain(JSON.stringify(astInfo, null, 2));
-      expect(result).toContain(componentCode);
+      expect(result).toContain('Name: UserCard');
+      expect(result).toContain('Props: { user?: User }');
+      expect(result).toContain('JSX: <div>, <Avatar>, <h3>, <p>');
     });
 
     it('should handle TypeScript interfaces in props', () => {
@@ -220,16 +233,19 @@ Line 3 with replaced3`;
         effects: [],
         handlers: [],
         jsxTree: ['div', 'label', 'input', 'span'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
       };
 
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('Document TypeScript component:\n{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => 'Document TypeScript component:\n{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(tsAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(tsAstInfo, null, 2));
-      expect(result).toContain(componentCode);
+      expect(result).toContain('Name: FormField');
+      expect(result).toContain('label: string');
+      expect(result).toContain('onChange: (value: string) => void');
     });
 
     it('should handle component with multiple useEffect hooks', () => {
@@ -247,15 +263,19 @@ Line 3 with replaced3`;
         ],
         handlers: [],
         jsxTree: ['div', 'Spinner', 'ErrorMessage', 'DataTable'],
-        exportsComponent: true
+        exportsComponent: true,
+        fileType: 'component' as const,
+        hasContext: false,
       };
 
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue('{{AST_INFO}}\n{{CODE}}');
+      spyOn(fs, 'existsSync').mockImplementation(() => true);
+      spyOn(fs, 'readFileSync').mockImplementation(() => '{{AST_INFO}}\n{{CODE}}');
       
       const result = getDocumentationPrompt(effectAstInfo, componentCode);
       
-      expect(result).toContain(JSON.stringify(effectAstInfo, null, 2));
+      expect(result).toContain('State: [data, loading, error]');
+      expect(result).toContain('useEffect([endpoint])');
+      expect(result).toContain('useEffect([data, loading])');
     });
   });
 });

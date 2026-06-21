@@ -1,5 +1,5 @@
 /**
- * @fileoverview Построитель графа зависимостей React компонентов
+ * @fileoverview React component dependency graph builder
  * @author AI Docgen
  * @version 1.0.0
  */
@@ -9,29 +9,29 @@ import { extractComponentInfo } from "./ast-extractor.js";
 import { FileInfo, ComponentGraph } from "../types.js";
 
 /**
- * Строит граф компонентов из массива файлов
- * @param files - Массив файлов с их путями и содержимым
- * @returns Граф компонентов в виде объекта
+ * Builds a component graph from an array of files
+ * @param files - Array of files with paths and content
+ * @returns Component graph as object
  */
 export function buildComponentGraph(files: FileInfo[]): ComponentGraph {
-  // Инициализируем пустой граф
+  // Initialize empty graph
   const graph: ComponentGraph = {};
 
-  // Обрабатываем каждый файл
+  // Process each file
   for (const file of files) {
-    // Извлекаем информацию о компоненте из AST
+    // Extract component info from AST
     const info = extractComponentInfo(file.content);
     
-    // Пропускаем файлы, которые не экспортируют компоненты
+    // Skip files that don't export components
     if (!info.exportsComponent) continue;
 
-    // Определяем имя компонента (используем имя из AST или имя файла)
+    // Determine component name (use AST name or file name)
     const componentName = info.name || path.basename(file.path, path.extname(file.path));
     
-    // Фильтруем дочерние компоненты (только те, что начинаются с заглавной буквы)
+    // Filter child components (only those starting with uppercase)
     const childComponents = info.jsxTree.filter((component: string) => /^[A-Z]/.test(component));
 
-    // Добавляем узел в граф
+    // Add node to graph
     graph[componentName] = {
       file: file.path,
       children: childComponents
@@ -42,23 +42,23 @@ export function buildComponentGraph(files: FileInfo[]): ComponentGraph {
 }
 
 /**
- * Преобразует граф компонентов в формат DOT для Graphviz
- * @param graph - Граф компонентов
- * @returns DOT представление графа
+ * Converts component graph to DOT format for Graphviz
+ * @param graph - Component graph
+ * @returns DOT representation of the graph
  */
 export function graphToDot(graph: ComponentGraph): string {
-  // Начинаем формировать DOT код
+  // Start building DOT code
   let dot: string = "digraph Components {\n";
-  dot += "  // Настройки отображения графа\n";
+  dot += "  // Graph display settings\n";
   dot += "  node [shape=box, style=filled, fillcolor=lightblue];\n";
   dot += "  edge [color=gray];\n\n";
 
-  // Добавляем узлы и связи
+  // Add nodes and edges
   for (const [name, data] of Object.entries(graph)) {
-    // Добавляем описание узла с информацией о файле
+    // Add node label with file info
     dot += `  "${name}" [label="${name}\\n(${path.basename(data.file)})"];\n`;
     
-    // Добавляем связи к дочерним компонентам
+    // Add edges to child components
     for (const child of data.children) {
       dot += `  "${name}" -> "${child}";\n`;
     }
@@ -69,34 +69,34 @@ export function graphToDot(graph: ComponentGraph): string {
 }
 
 /**
- * Преобразует граф компонентов в Markdown формат
- * @param graph - Граф компонентов  
- * @returns Markdown представление графа
+ * Converts component graph to Markdown format
+ * @param graph - Component graph  
+ * @returns Markdown representation of the graph
  */
 export function graphToMarkdown(graph: ComponentGraph): string {
   let md: string = "# Component Tree\n\n";
-  md += "Иерархия React компонентов проекта.\n\n";
+  md += "React Component Hierarchy.\n\n";
 
-  // Обрабатываем каждый узел графа
+  // Process each graph node
   for (const [name, data] of Object.entries(graph)) {
-    // Заголовок компонента
+    // Component header
     md += `## ${name}\n\n`;
     
-    // Информация о файле
-    md += `**Файл:** \`${data.file}\`\n\n`;
+    // File info
+    md += `**File:** \`${data.file}\`\n\n`;
 
-    // Дочерние компоненты
+    // Child components
     if (data.children.length === 0) {
-      md += "**Дочерние компоненты:** ➡️ Нет\n\n";
+      md += "**Children:** ➡️ None\n\n";
     } else {
-      md += "**Дочерние компоненты:**\n";
+      md += "**Children:**\n";
       for (const child of data.children) {
         md += `- ${child}\n`;
       }
       md += "\n";
     }
 
-    // Добавляем разделитель между компонентами
+    // Add separator between components
     md += "---\n\n";
   }
 

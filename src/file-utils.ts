@@ -1,195 +1,214 @@
 /**
- * @fileoverview Утилиты для работы с файловой системой
+ * @fileoverview File system utilities
  * @author AI Docgen
  * @version 1.0.0
  */
 
-import { globby } from "globby";
-import fs from "fs-extra";
+import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 /**
- * Получает список файлов для обработки
- * Поддерживает как директории, так и отдельные файлы
- * @param src - Путь к исходной директории или файлу
- * @param extensions - Список расширений файлов через запятую
- * @returns Promise с массивом путей к файлам
+ * Recursively finds files with given extensions in a directory
+ */
+function findFilesRecursive(dir: string, extensions: string[]): string[] {
+  const results: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...findFilesRecursive(fullPath, extensions));
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).substring(1).toLowerCase();
+      if (extensions.includes(ext)) {
+        results.push(fullPath);
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Gets list of files to process
+ * Supports both directories and single files
+ * @param src - Path to source directory or file
+ * @param extensions - Comma-separated list of file extensions
+ * @returns Promise with array of file paths
  */
 export async function getFiles(src: string, extensions: string): Promise<string[]> {
-  // Проверяем, существует ли путь и является ли он файлом
+  // Check if path exists and is a file
   const pathExists = fs.existsSync(src);
   if (!pathExists) {
-    throw new Error(`Путь не найден: ${src}`);
+    throw new Error(`Path not found: ${src}`);
   }
 
   const stats = fs.statSync(src);
   
-  // Если это файл, проверяем его расширение и возвращаем сразу
+  // If it's a file, check extension and return immediately
   if (stats.isFile()) {
     return validateAndReturnSingleFile(src, extensions);
   }
   
-  // Если это директория, используем существующую логику с globby
+  // If it's a directory, use recursive file search
   return getFilesFromDirectory(src, extensions);
 }
 
 /**
- * Проверяет и возвращает одиночный файл
- * @param filePath - Путь к файлу
- * @param extensions - Список допустимых расширений
- * @returns Массив с одним файлом если он подходит
+ * Checks and returns a single file
+ * @param filePath - File path
+ * @param extensions - List of allowed extensions
+ * @returns Array with one file if it matches
  */
 function validateAndReturnSingleFile(filePath: string, extensions: string): string[] {
-  // Разбиваем строку расширений на массив, убирая лишние пробелы
+  // Split extensions string into array, remove extra spaces
   const exts: string[] = extensions.split(",").map((e: string) => e.trim());
   
-  // Получаем расширение файла
+  // Get file extension
   const fileExt = path.extname(filePath).substring(1).toLowerCase();
   
-  // Проверяем, входит ли расширение файла в список допустимых
+  // Check if file extension is in allowed list
   if (!exts.includes(fileExt)) {
-    throw new Error(`Расширение файла '.${fileExt}' не входит в список допустимых: ${extensions}`);
+    throw new Error(`File extension '.${fileExt}' is not in allowed list: ${extensions}`);
   }
   
   return [filePath];
 }
 
 /**
- * Получает список файлов из директории по расширениям
- * @param src - Путь к исходной директории
- * @param extensions - Список расширений файлов через запятую
- * @returns Promise с массивом путей к файлам
+ * Gets list of files from directory by extension
+ * @param src - Source directory path
+ * @param extensions - Comma-separated list of file extensions
+ * @returns Promise with array of file paths
  */
 async function getFilesFromDirectory(src: string, extensions: string): Promise<string[]> {
-  // Разбиваем строку расширений на массив, убирая лишние пробелы
   const exts: string[] = extensions.split(",").map((e: string) => e.trim());
-  
-  // Создаем паттерны для поиска файлов с каждым расширением
-  const patterns: string[] = exts.map((ext: string) => `${src}/**/*.${ext}`);
-  
-  // Используем globby для поиска файлов по паттернам
-  return globby(patterns);
+  return findFilesRecursive(src, exts);
 }
 
 /**
- * Читает содержимое файла
- * @param filePath - Путь к файлу
- * @returns Содержимое файла в виде строки
+ * Reads file content
+ * @param filePath - File path
+ * @returns File content as string
  */
 export function readFile(filePath: string): string {
   return fs.readFileSync(filePath, "utf8");
 }
 
 /**
- * Записывает обработанный контент в выходную директорию
- * Сохраняет структуру директорий относительно исходной
- * @param baseOut - Базовая выходная директория
- * @param srcFile - Путь к исходному файлу
- * @param content - Контент для записи
- * @returns Путь к созданному файлу
+ * Writes processed content to output directory
+ * Preserves directory structure relative to source
+ * @param baseOut - Base output directory
+ * @param srcFile - Source file path
+ * @param content - Content to write
+ * @returns Path to created file
  */
 export function writeOutput(baseOut: string, srcFile: string, content: string): string {
-  // Получаем относительный путь от текущей рабочей директории
+  // Get relative path from current working directory
   const rel: string = path.relative(process.cwd(), srcFile);
   
-  // Формируем полный путь для выходного файла
+  // Build full path for output file
   const outPath: string = path.join(baseOut, rel);
   
-  // Создаем директории если они не существуют
-  fs.ensureDirSync(path.dirname(outPath));
+  // Create directories if they don't exist
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   
-  // Записываем контент в файл
+  // Write content to file
   fs.writeFileSync(outPath, content);
   
   return outPath;
 }
 
 /**
- * Записывает контент непосредственно в исходный файл (in-place)
- * @param filePath - Путь к файлу для перезаписи
- * @param content - Новый контент для записи
+ * Writes content directly to source file (in-place)
+ * @param filePath - File path to overwrite
+ * @param content - New content to write
  */
 export function writeInPlace(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
 /**
- * Проверяет, содержит ли файл тег @fileoverview в начале
- * @param content - Содержимое файла
- * @returns true если файл содержит @fileoverview
+ * Checks if file contains @fileoverview tag at start
+ * @param content - File content
+ * @returns true if file contains @fileoverview
  */
 export function hasFileoverview(content: string): boolean {
-  // Проверяем первые 500 символов на наличие @fileoverview
+  // Check first 500 characters for @fileoverview
   const header = content.slice(0, 500);
   return /@fileoverview/.test(header);
 }
 
 /**
- * Удаляет все комментарии из кода JavaScript/TypeScript
- * @param code - Исходный код
- * @returns Код без комментариев
+ * Removes all comments from JavaScript/TypeScript code
+ * @param code - Source code
+ * @returns Code without comments
  */
 export function removeComments(code: string): string {
-  // Создаем массив для защищенных строк
+  // Create array for protected strings
   const strings: string[] = [];
   let stringIndex = 0;
   
   let result = code;
   
-  // Защищаем строки в одинарных кавычках
-  result = result.replace(/'([^'\\]|\\.)*'/g, (match) => {
+  // Protect single-quoted strings
+  result = result.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
-  // Защищаем строки в двойных кавычках
-  result = result.replace(/"([^"\\]|\\.)*"/g, (match) => {
+  // Protect double-quoted strings
+  result = result.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
-  // Защищаем строки в обратных кавычках (template literals)
-  result = result.replace(/`([^`\\]|\\.)*`/g, (match) => {
+  // Protect backtick strings (template literals)
+  result = result.replace(/`[^`\\]*(?:\\.[^`\\]*)*`/g, (match) => {
     strings[stringIndex] = match;
     return `__STRING_${stringIndex++}__`;
   });
   
-  // Удаляем многострочные комментарии (/* comment */) 
+  // Protect regex literals from false removal
+  // Don't capture // as start of regexp, need at least 1 char between //
+  result = result.replace(/\/(?!\*)(?:\[[^\]]*\]|[^\/\\\n]|\\.)+\/[gimsuy]*/g, (match) => {
+    strings[stringIndex] = match;
+    return `__REGEXP_${stringIndex++}__`;
+  });
+
+  // Remove multi-line comments (/* comment */ and /** JSDoc */)
   result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Remove single-line comments (// comment) 
+  // Don't remove part after // if it's part of URL or protocol
+  result = result.replace(/(?:^|[ \t])\/\/.*$/gm, '');
   
-  // Удаляем JSDoc комментарии (/** comment */) 
-  result = result.replace(/\/\*\*[\s\S]*?\*\//g, '');
-  
-  // Удаляем однострочные комментарии (// comment) 
-  result = result.replace(/(^|\s)\/\/.*$/gm, '$1');
-  
-  // Восстанавливаем все защищенные строки
-  result = result.replace(/__STRING_(\d+)__/g, (match, index) => {
+  // Restore all protected strings and regexes
+  result = result.replace(/__(STRING|REGEXP)_(\d+)__/g, (match, type, index) => {
     return strings[parseInt(index)] || match;
   });
   
-  // Убираем лишние переносы строк в начале файла
+  // Remove extra blank lines at file start
   result = result.replace(/^\s*\n/, '');
   
-  // Удаляем множественные переносы строк (более 1 подряд)
+  // Remove multiple consecutive blank lines
   result = result.replace(/\n\s*\n\s*\n+/g, '\n\n');
-  // Удаляем лишние пробелы в конце строк
+  // Remove trailing whitespace
   result = result.replace(/\s+$/gm, '');
-  // Убираем множественные пробелы в строке (оставляем только 1)
+  // Collapse multiple spaces (keep only 1)
   result = result.replace(/[ \t]+/g, ' ');
-  // Нормализуем переносы строк (убираем лишние пробелы вокруг них)
+  // Normalize line breaks (remove extra spaces around them)
   result = result.replace(/\n\s+/g, '\n');
-  // Удаляем пустые строки в начале и конце
+  // Remove blank lines at start and end
   result = result.trim();
   
   return result;
 }
 
 /**
- * Проверяет, изменился ли код по сравнению с оригиналом
- * @param original - Оригинальный код
- * @param modified - Модифицированный код
- * @returns true если код изменился (игнорируя комментарии)
+ * Checks if code has changed compared to original
+ * @param original - Original code
+ * @param modified - Modified code
+ * @returns true if code changed (ignoring comments)
  */
 export function hasCodeChanges(original: string, modified: string): boolean {
   const originalClean = removeComments(original);
@@ -198,34 +217,23 @@ export function hasCodeChanges(original: string, modified: string): boolean {
   return originalClean !== modifiedClean;
 }
 
+// ── Hash-based incrementality ───────────────────────────────────────────────
+
 /**
- * Проверяет, существует ли выходной файл
- * @param baseOut - Базовая выходная директория
- * @param srcFile - Путь к исходному файлу
- * @returns true если выходной файл уже существует
+ * Calculates SHA-256 hash of content (first 16 hex characters).
+ * Used for incrementality — if source hash hasn't changed,
+ * LLM call is skipped.
  */
-export function outputFileExists(baseOut: string, srcFile: string): boolean {
-  const rel: string = path.relative(process.cwd(), srcFile);
-  const outPath: string = path.join(baseOut, rel);
-  return fs.existsSync(outPath);
+export function hashContent(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex").substring(0, 16);
 }
 
 /**
- * Получает список всех md файлов в директории документации
- * @param docsDir - Директория с документацией
- * @returns Promise с массивом путей к md файлам
+ * Extracts hash from wiki page YAML frontmatter.
+ * Format: `hash: abc123`
+ * @returns Hash or null if field not found
  */
-export async function getDocFiles(docsDir: string): Promise<string[]> {
-  if (!fs.existsSync(docsDir)) {
-    return [];
-  }
-  return globby(`${docsDir}/**/*.md`);
-}
-
-/**
- * Удаляет файл
- * @param filePath - Путь к файлу для удаления
- */
-export function deleteFile(filePath: string): void {
-  fs.removeSync(filePath);
+export function extractWikiHash(content: string): string | null {
+  const match = content.match(/^hash:\s*([a-f0-9]+)/m);
+  return match?.[1] ?? null;
 }

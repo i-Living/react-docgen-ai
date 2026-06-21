@@ -9,36 +9,28 @@
     "react-docgen-ai": "./bin/react-docgen-ai.js"
   },
   "scripts": {
-    "build": "tsc && npm run copy-prompts",
-    "copy-prompts": "node -e \"require('fs-extra').copySync('src/prompts', 'dist/prompts')\"",
+    "build": "tsc && bun run copy-prompts",
+    "clean": "bun -e \"const fs = require('fs'); fs.rmSync('dist', {recursive: true, force: true});\"",
+    "copy-prompts": "bun -e \"const fs = require('fs'); fs.cpSync('src/prompts', 'dist/prompts', {recursive: true});\"",
     "dev": "tsc --watch",
-    "start": "node dist/cli.js",
-    "clean": "rm -rf dist",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "start": "bun dist/cli.js",
+    "test": "bun test __tests__/ast-extractor.test.ts __tests__/compact-format.test.ts __tests__/component-graph.test.ts __tests__/file-utils.test.ts __tests__/prompt-loader.test.ts __tests__/llm-client.test.ts",
+    "test:mock": "bun test __tests__/annotator.test.ts __tests__/generate-graph.test.ts",
+    "test:all": "bun test __tests__/",
+    "prepublishOnly": "bun run build && bun run test:all",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@babel/parser": "^7.23.0",
     "@babel/traverse": "^7.23.0",
     "@babel/types": "^7.23.0",
-    "axios": "^1.6.0",
+    "@opencode-ai/sdk": "^1.16.2",
     "commander": "^11.1.0",
-    "fs-extra": "^11.1.1",
-    "globby": "^13.2.2"
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.5",
-    "@babel/preset-env": "^7.28.5",
     "@types/babel__traverse": "^7.28.0",
-    "@types/fs-extra": "^11.0.4",
-    "@types/globby": "^6.1.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20.8.0",
-    "babel-jest": "^30.2.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
     "typescript": "^5.2.0"
   },
   "keywords": [
@@ -50,5 +42,6 @@
     "docgen"
   ],
   "author": "AI Docgen",
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "bun@1.3.14"
 }

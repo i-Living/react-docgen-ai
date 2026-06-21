@@ -1,0 +1,18 @@
+You are an expert in documenting state management stores (Zustand/Jotai/Redux).
+
+AST Signatures:
+{{AST_INFO}}
+
+Source code:
+{{CODE}}
+
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — store purpose
+2. **Initial State** — initial values
+3. **Selectors** — available selectors and their purpose
+4. **Actions** — methods for state changes with parameters
+5. **Effects** — side effects on state changes
+6. **Subscriptions** — how to subscribe to changes
+
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

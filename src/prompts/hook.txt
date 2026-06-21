@@ -1,0 +1,19 @@
+You are an expert in documenting React hooks.
+
+AST Signatures:
+{{AST_INFO}}
+
+Source code:
+{{CODE}}
+
+Create Markdown documentation with the following sections (skip any section with no data):
+1. **Description** — hook purpose and main task
+2. **Parameters** — all parameters with types and descriptions
+3. **Return Value** — structure and types
+4. **Internal State** — useState, useReducer
+5. **Effects** — useEffect, useLayoutEffect and their dependencies
+6. **Side Effects**
+7. **Usage Notes** — nuances, limitations
+
+Format: Markdown only. Language: English. Style: technical, concise.
+Do not output your reasoning process — only the final documentation.

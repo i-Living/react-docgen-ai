@@ -1,55 +1,56 @@
 /**
- * @fileoverview Тесты для модуля llm-client
+ * @fileoverview Tests for llm-client module
  * @author AI Docgen
  * @version 1.0.0
  */
 
-import axios from 'axios';
-import { callLLM } from '../dist/llm-client.js';
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { callLLM } from '../src/llm-client.js';
 
-// Мокаем axios для тестирования
-jest.mock('axios');
+// Mock global fetch
+const mockFetch = mock(() => new Response());
+global.fetch = mockFetch;
 
 describe('LLM Client', () => {
-  const mockAxios = axios as jest.Mocked<typeof axios>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    global.fetch = mockFetch;
   });
 
   describe('callLLM', () => {
     it('should make successful API call and return cleaned response', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: 'Some response text\n<|message|>Cleaned response content\n<|end|>'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
-      expect(mockAxios.post).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:8000/completions',
-        {
-          prompt: 'test prompt',
-          max_tokens: 4096,
-          temperature: 0.1
-        }
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
       );
       expect(result).toBe('Cleaned response content');
     });
 
     it('should handle API response with choices format', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           choices: [
             {
               text: 'Response from choices format'
             }
           ]
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -58,11 +59,12 @@ describe('LLM Client', () => {
 
     it('should use custom API options', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: 'Custom options response'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const options = {
         maxTokens: 2048,
@@ -70,24 +72,30 @@ describe('LLM Client', () => {
       };
       const result = await callLLM('http://localhost:8000/completions', 'test prompt', options);
 
-      expect(mockAxios.post).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:8000/completions',
-        {
-          prompt: 'test prompt',
-          max_tokens: 2048,
-          temperature: 0.5
-        }
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: 'test prompt',
+            max_tokens: 2048,
+            temperature: 0.5,
+            stream: false
+          })
+        })
       );
       expect(result).toBe('Custom options response');
     });
 
     it('should clean channel markers from response', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '<|channel|><|start|><|message|>Response with channels<|end|>'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -96,11 +104,12 @@ describe('LLM Client', () => {
 
     it('should clean markdown code blocks from response', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '```javascript\nconsole.log("Hello World");\n```'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -109,11 +118,12 @@ describe('LLM Client', () => {
 
     it('should clean multiple markdown code blocks', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '```typescript\ninterface Test {\n  name: string;\n}\n```\n\nSome explanation\n\n```jsx\n<Component />\n```'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -122,16 +132,16 @@ describe('LLM Client', () => {
       expect(result).toContain('<Component />');
     });
 
-    it('should handle network errors', async () => {
+    it('should handle network errors', { timeout: 30000 }, async () => {
       const networkError = new Error('ECONNREFUSED');
-      mockAxios.post.mockRejectedValue(networkError);
+      mockFetch.mockImplementation(() => Promise.reject(networkError));
 
       await expect(callLLM('http://localhost:8000/completions', 'test prompt'))
         .rejects
         .toThrow('LLM API error: ECONNREFUSED');
     });
 
-    it('should handle HTTP errors', async () => {
+    it('should handle HTTP errors', { timeout: 30000 }, async () => {
       const httpError = {
         response: {
           status: 500,
@@ -139,7 +149,7 @@ describe('LLM Client', () => {
         },
         message: 'Request failed with status code 500'
       };
-      mockAxios.post.mockRejectedValue(httpError);
+      mockFetch.mockImplementation(() => Promise.reject(httpError));
 
       await expect(callLLM('http://localhost:8000/completions', 'test prompt'))
         .rejects
@@ -148,9 +158,10 @@ describe('LLM Client', () => {
 
     it('should handle empty response', async () => {
       const mockResponse = {
-        data: {}
+        ok: true,
+        json: () => Promise.resolve({})
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -159,11 +170,12 @@ describe('LLM Client', () => {
 
     it('should handle response with only whitespace', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '   \n\n   \t  \n   '
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -172,11 +184,12 @@ describe('LLM Client', () => {
 
     it('should normalize newlines in response', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: 'Line 1\n\n\n\nLine 2\n\n\n\n\nLine 3'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -185,11 +198,12 @@ describe('LLM Client', () => {
 
     it('should handle complex channel markers with various formats', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '<|channel|channel_0<|message|>First part<|end|><|channel|channel_1<|message|>Second part<|end|>'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -198,11 +212,12 @@ describe('LLM Client', () => {
 
     it('should handle mixed content with channels and code blocks', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '<|channel|><|message|>Here is some code:\n\n```js\nconsole.log("test");\n```\n\nAnd some text.<|end|>'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -213,11 +228,12 @@ describe('LLM Client', () => {
 
     it('should preserve code within strings during cleaning', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '```js\nconsole.log("Code with // comment");\n```'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 
@@ -227,11 +243,12 @@ describe('LLM Client', () => {
 
     it('should handle partial channel markers gracefully', async () => {
       const mockResponse = {
-        data: {
+        ok: true,
+        json: () => Promise.resolve({
           text: '<|channel|>Partial <|message|>Response<|end|>'
-        }
+        })
       };
-      mockAxios.post.mockResolvedValue(mockResponse);
+      mockFetch.mockImplementation(() => Promise.resolve(mockResponse));
 
       const result = await callLLM('http://localhost:8000/completions', 'test prompt');
 

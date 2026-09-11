@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import { extractComponentInfo } from '../dist/ast/ast-extractor.js';
+import { extractComponentInfo } from '../src/ast/ast-extractor.js';
 
 describe('AST Extractor', () => {
   describe('extractComponentInfo', () => {
@@ -367,9 +367,58 @@ describe('AST Extractor', () => {
     });
 
     it('should classify barrel file as skip', () => {
-      const code = `export { Button } from "./Button";\nexport { Input } from "./Input";`;
+      const code = `export { Button } from "./Button";
+export { Input } from "./Input";`;
       const result = extractComponentInfo(code);
       expect(result.fileType).toBe('skip');
+    });
+
+    it('should name the exported page, not an inner skeleton helper', () => {
+      const code = `
+        function CatalogSkeleton() {
+          return <div role="status" />;
+        }
+        export function CatalogPage() {
+          return <div><CatalogSkeleton /><ProductCard /></div>;
+        }
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.name).toBe('CatalogPage');
+      expect(result.exportsComponent).toBe(true);
+      expect(result.fileType).toBe('component');
+    });
+
+    it('should classify useQuery wrappers as hooks', () => {
+      const code = `
+        export function useCart() {
+          return useQuery({ queryKey: ['cart'], queryFn: getCart });
+        }
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.name).toBe('useCart');
+      expect(result.fileType).toBe('hook');
+    });
+
+    it('should mark exported utils as exported without using ALL_CAPS as the name', () => {
+      const code = `
+        export const API_PATHS = { cart: '/api/cart' };
+        export function request() { return fetch('/api'); }
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.exportsComponent).toBe(true);
+      expect(result.name).not.toBe('API_PATHS');
+      expect(result.fileType).toBe('util');
+    });
+
+    it('should not skip a router module that only has JSX in config', () => {
+      const code = `
+        export const router = createBrowserRouter([
+          { path: '/', element: <App /> },
+        ]);
+      `;
+      const result = extractComponentInfo(code);
+      expect(result.fileType).toBe('component');
+      expect(result.jsxTree).toContain('App');
     });
   });
 });

@@ -156,6 +156,16 @@ describe('File Utils — integration (temp files)', () => {
       expect(files).toContain(path.join(srcDir, 'util.ts'));
     });
 
+    it('should skip test files and test directories', async () => {
+      const srcDir = path.join(dir, 'src');
+      fs.writeFileSync(path.join(srcDir, 'comp.test.tsx'), '', 'utf-8');
+      fs.mkdirSync(path.join(srcDir, 'test'), { recursive: true });
+      fs.writeFileSync(path.join(srcDir, 'test', 'fixtures.ts'), '', 'utf-8');
+      const files = await getFiles(srcDir, 'ts,tsx');
+      expect(files.some((f) => f.includes('comp.test.tsx'))).toBe(false);
+      expect(files.some((f) => f.includes(`${path.sep}test${path.sep}`))).toBe(false);
+    });
+
     it('should handle single file', async () => {
       const files = await getFiles(srcFile, 'ts,tsx');
       expect(files).toHaveLength(1);

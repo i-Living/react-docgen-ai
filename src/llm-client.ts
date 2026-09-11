@@ -10,6 +10,9 @@ import { LlmApiOptions } from "./types.js";
 const MAX_RETRIES = 3;
 /** Base delay between retries (ms) */
 const BASE_DELAY = 1000;
+/** Opaque session id for OpenCode Go routing (`x-opencode-session`) */
+const OPENCODE_SESSION =
+  (process.env.LLM_OPENCODE_SESSION || "").trim() || `react-docgen-ai-${process.pid}`;
 
 /**
  * Waits for specified milliseconds.
@@ -238,6 +241,9 @@ export async function callLLM(
     const apiKey = process.env.LLM_API_KEY || '';
     if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    if (api.includes("opencode.ai")) {
+      headers["x-opencode-session"] = OPENCODE_SESSION;
     }
 
     // Execute POST request to LLM API via fetch

@@ -67,11 +67,7 @@ function extractWikiBody(content: string): string {
  * Normalizes file name: kebab-case, no special characters.
  */
 function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    || "unknown";
+  return wikiKebab(name);
 }
 
 /**
@@ -82,8 +78,51 @@ function today(): string {
 }
 
 /**
- * Builds wiki content for a component.
+ * First prose line of LLM wiki text for index.md.
+ * Skips leftover markdown headings so the catalog is not "## Description".
  */
+export function extractIndexSummary(doc: string): string {
+  const withoutH1 = doc.replace(/^#\s+.+$/m, "").trim();
+  for (const raw of withoutH1.split("\n")) {
+    const line = raw.trim().replace(/^\*{1,2}|\*{1,2}$/g, "").trim();
+    if (!line || /^#{1,6}\s/.test(line)) continue;
+    return line.slice(0, 120);
+  }
+  return "";
+}
+
+function unique(items: string[]): string[] {
+  return [...new Set(items)];
+}
+
+/** Wiki entity id = source filename without extension (`client.ts` → `client`). */
+export function wikiEntityName(file: string): string {
+  return path.basename(file, path.extname(file));
+}
+
+/** kebab-case including CamelCase split (`CheckoutForm` → `checkout-form`). */
+export function wikiKebab(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/_/g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "unknown";
+}
+
+function wikiAliases(pageName: string, astName: string | null): string[] {
+  const aliases = new Set<string>([pageName, wikiKebab(pageName)]);
+  if (astName) {
+    aliases.add(astName);
+    aliases.add(wikiKebab(astName));
+  }
+  return [...aliases];
+}
+
+function resolveWikiLink(name: string, pageByAlias: Map<string, string>): string | undefined {
+  return pageByAlias.get(name) ?? pageByAlias.get(wikiKebab(name));
+}
 function buildWikiContent(
   docMd: string,
   fm: WikiFrontmatter,
@@ -142,10 +181,20 @@ type FileData = {
  * Avoids re-parsing AST — uses astInfo.jsxTree.
  */
 function buildGraphFromData(fileDataList: FileData[]): ComponentGraph {
+  const pageByAlias = new Map<string, string>();
+  for (const data of fileDataList) {
+    for (const alias of wikiAliases(data.componentName, data.astInfo.name)) {
+      pageByAlias.set(alias, data.componentName);
+    }
+  }
   const graph: ComponentGraph = {};
   for (const data of fileDataList) {
-    if (!data.astInfo.exportsComponent) continue;
-    const childComponents = data.astInfo.jsxTree.filter((c: string) => /^[A-Z]/.test(c));
+    const childComponents = unique(
+      data.astInfo.jsxTree
+        .filter((c: string) => /^[A-Z]/.test(c) && /[a-z]/.test(c))
+        .map((c) => resolveWikiLink(c, pageByAlias))
+        .filter((c): c is string => Boolean(c) && c !== data.componentName),
+    );
     graph[data.componentName] = {
       file: data.file,
       children: childComponents,
@@ -283,12 +332,12 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
   await processFilesConcurrent(files, async (file, index) => {
     const code: string = readFile(file);
     const astInfo = extractComponentInfo(code);
-    const componentName = astInfo.name || path.basename(file, path.extname(file));
+    const componentName = wikiEntityName(file);
     const currentHash = hashContent(code);
 
     // Skip files without useful content (barrel files, empty, re-exports only)
     if (astInfo.fileType === "skip") {
-      return { file, success: true, skipped: true, outputPath: entitiesDir };
+      return { file, success: true, skipped: true, skipReason: "empty", outputPath: entitiesDir };
     }
 
     if (!astInfo.exportsComponent) {
@@ -360,7 +409,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       created: existingPages.has(slugify(pageName)) ? getFileDate(pagePath, "created") : today(),
       updated: today(),
       type: "entity",
-      tags: ["component", data.astInfo.exportsComponent ? "exported" : "internal"],
+      tags: [data.astInfo.fileType, data.astInfo.exportsComponent ? "exported" : "internal"],
       source: data.file,
       confidence: estimateConfidence(data.astInfo),
       hash: data.hash,
@@ -384,13 +433,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     }
 
     // Extract summary from first sentence of LLM documentation
-    const firstLine = data.doc
-      .replace(/^#\s+.+/m, "")
-      .trim()
-      .split("\n")[0]
-      ?.replace(/^\*{1,2}|\*{1,2}$/g, "")
-      .trim()
-      .slice(0, 120) || "";
+    const firstLine = extractIndexSummary(data.doc);
 
     pagesForIndex.push({
       name: pageName,

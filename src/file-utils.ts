@@ -11,14 +11,22 @@ import crypto from "crypto";
 /**
  * Recursively finds files with given extensions in a directory
  */
+const SKIP_DIRS = new Set(["test", "__tests__", "node_modules", "dist", ".git"]);
+
+function isTestFile(name: string): boolean {
+  return /\.(test|spec)\./i.test(name);
+}
+
 function findFilesRecursive(dir: string, extensions: string[]): string[] {
   const results: string[] = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue;
       results.push(...findFilesRecursive(fullPath, extensions));
     } else if (entry.isFile()) {
+      if (isTestFile(entry.name)) continue;
       const ext = path.extname(entry.name).substring(1).toLowerCase();
       if (extensions.includes(ext)) {
         results.push(fullPath);

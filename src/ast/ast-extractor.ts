@@ -10,6 +10,11 @@ import { NodePath } from "@babel/traverse"
 import * as t from "@babel/types";
 import { ComponentInfo, FileType } from "../types.js";
 
+/** PascalCase component/page id — not SCREAMING_SNAKE constants. */
+function isComponentId(name: string): boolean {
+  return name.charAt(0) === name.charAt(0).toUpperCase() && /[a-z]/.test(name);
+}
+
 /**
  * Extracts structural information about a React component from source code
  * @param code - Source code of React component
@@ -49,32 +54,27 @@ export function extractComponentInfo(code: string): ComponentInfo {
       }
     },
 
-    // Check named exports — only set exportsComponent when the exported
-    // declaration looks like a component (name starts with uppercase).
-    // This prevents utility functions (export function helper()) from
-    // being included in the component graph.
+    // Named export of any declaration counts as exported (utils, hooks, stores).
+    // PascalCase still wins as AST display name; SCREAMING_SNAKE constants do not.
     ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
-      // Has a declaration (export function / export const / export class)
       if (path.node.declaration) {
-        // export function Button(...)
+        info.exportsComponent = true;
         if (t.isFunctionDeclaration(path.node.declaration) &&
             path.node.declaration.id &&
-            path.node.declaration.id.name.charAt(0) === path.node.declaration.id.name.charAt(0).toUpperCase()) {
-          info.exportsComponent = true;
+            isComponentId(path.node.declaration.id.name)) {
+          info.name = path.node.declaration.id.name;
         }
-        // export const Button = ...
         if (t.isVariableDeclaration(path.node.declaration)) {
           for (const decl of path.node.declaration.declarations) {
-            if (t.isIdentifier(decl.id) && decl.id.name.charAt(0) === decl.id.name.charAt(0).toUpperCase()) {
-              info.exportsComponent = true;
+            if (t.isIdentifier(decl.id) && isComponentId(decl.id.name)) {
+              info.name = decl.id.name;
             }
           }
         }
-        // export class Button ...
         if (t.isClassDeclaration(path.node.declaration) &&
             path.node.declaration.id &&
-            path.node.declaration.id.name.charAt(0) === path.node.declaration.id.name.charAt(0).toUpperCase()) {
-          info.exportsComponent = true;
+            isComponentId(path.node.declaration.id.name)) {
+          info.name = path.node.declaration.id.name;
         }
       }
       // Re-exports (export { Button }) — only for LOCAL specifiers (no source).
@@ -286,15 +286,11 @@ export function extractComponentInfo(code: string): ComponentInfo {
  * Check order matters — more specific types are checked first.
  */
 function classifyFile(info: ComponentInfo): FileType {
-  // Component: has JSX and export
-  if (info.jsxTree.length > 0 && info.exportsComponent) return "component";
+  // Component: any JSX (exported page, inner-only helpers, router modules)
+  if (info.jsxTree.length > 0) return "component";
 
-  // Hook: name starts with "use" and has hooks (state/effects)
-  if (info.name && info.name.startsWith("use") && (info.state.length > 0 || info.effects.length > 0)) {
-    return "hook";
-  }
-  // Hook without state: name starts with "use" and is exported
-  if (info.name && info.name.startsWith("use") && info.exportsComponent) {
+  // Hook: name starts with "use" (including useQuery wrappers with no local state)
+  if (info.name && info.name.startsWith("use")) {
     return "hook";
   }
 

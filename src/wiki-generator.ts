@@ -12,6 +12,7 @@ import { CliOptions, ComponentInfo } from "./types.js";
 import { getFiles, readFile, hashContent, extractWikiHash } from "./file-utils.js";
 import { callLlm } from "./llm.js";
 import { extractComponentInfo } from "./ast/ast-extractor.js";
+import { shouldIncludeCode } from "./ast/compact-format.js";
 import { ComponentGraph } from "./types.js";
 import { getDocumentationPrompt, setPromptDirectory } from "./prompt-loader.js";
 import { processFilesConcurrent } from "./pipeline.js";
@@ -156,13 +157,67 @@ function buildWikiContent(
   return `${header}\n\n# ${componentName}\n\n> Source: \`${fm.source}\`\n\n${links.join("\n")}\n${body}\n`;
 }
 
+const PRIMITIVE_MAX_LINES = 80;
+const QUERY_RE = /\buse(Query|Mutation|InfiniteQuery|SuspenseQuery)\b/;
+const QUERY_STATE_RE = /\b(isPending|queryKey)\b/;
+const ROUTER_RE = /\b(createBrowserRouter|createHashRouter|createMemoryRouter)\b/;
+const UI_KIT_RE = /\b(cva\s*\(|class-variance-authority|@radix-ui\/)/;
+
 /**
- * Calculates confidence based on export count and JSX elements.
+ * Confidence follows whether the LLM saw source, not JSX tag count.
  */
-function estimateConfidence(info: ComponentInfo): WikiFrontmatter["confidence"] {
-  if (info.exportsComponent && info.jsxTree.length > 2) return "high";
-  if (info.exportsComponent) return "medium";
-  return "low";
+export function estimateConfidence(opts: { codeIncluded: boolean; llmOk: boolean }): WikiFrontmatter["confidence"] {
+  if (!opts.llmOk) return "low";
+  if (opts.codeIncluded) return "high";
+  return "medium";
+}
+
+/**
+ * Thin UI wrappers (shadcn/radix/cva, files under /ui/) are a map-noise.
+ * Hooks, stores, routers, query gates, and files over PRIMITIVE_MAX_LINES stay.
+ */
+export function isPrimitiveUi(info: ComponentInfo, code: string, file = ""): boolean {
+  if (info.fileType === "hook" || info.fileType === "store" || info.fileType === "context" || info.fileType === "types") {
+    return false;
+  }
+  if (info.state.length > 0 || info.effects.length > 0 || info.hasStore || info.hasContext) return false;
+  if (code.split("\n").length > PRIMITIVE_MAX_LINES) return false;
+  if (QUERY_RE.test(code) || QUERY_STATE_RE.test(code) || ROUTER_RE.test(code)) return false;
+
+  const inUiDir = /(?:^|\/)ui\//.test(file.replace(/\\/g, "/"));
+  const uiKit = UI_KIT_RE.test(code);
+  const uniqueJsx = [...new Set(info.jsxTree)];
+  const customJsx = uniqueJsx.filter((n) => {
+    if (!/^[A-Z]/.test(n)) return false;
+    if (n === "Slot" || n === "Fragment" || n === "Comp") return false;
+    if (n.endsWith("Primitive")) return false;
+    return true;
+  });
+  const htmlOrSlotOnly = uniqueJsx.length > 0 && customJsx.length === 0;
+
+  if (info.fileType === "util") return uiKit || inUiDir;
+  if (info.fileType !== "component") return false;
+  return htmlOrSlotOnly || uiKit || inUiDir;
+}
+
+/** Frontmatter `source:` path, or null. */
+export function readWikiSource(content: string): string | null {
+  const match = content.match(/^source:\s+(\S+)/m);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Archive only when the source file is gone or this run skipped it as a primitive.
+ * A rename (source still exists, different slug) is not an archive.
+ */
+export function shouldArchiveWikiPage(args: {
+  sourceFromPage: string | null;
+  sourceExists: boolean;
+  skippedAsPrimitive: boolean;
+}): boolean {
+  if (args.skippedAsPrimitive) return true;
+  if (!args.sourceFromPage) return false;
+  return !args.sourceExists;
 }
 
 /** File data collected for wiki generation */
@@ -174,6 +229,7 @@ type FileData = {
   doc: string;
   success: boolean;
   hash: string;
+  codeIncluded: boolean;
 };
 
 /**
@@ -327,6 +383,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
 
   // Collect data: for each file — code, AST, documentation
   const fileDataList: FileData[] = [];
+  const primitiveSources = new Set<string>();
 
   // Use parallel pipeline for documentation
   await processFilesConcurrent(files, async (file, index) => {
@@ -340,9 +397,12 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       return { file, success: true, skipped: true, skipReason: "empty", outputPath: entitiesDir };
     }
 
-    if (!astInfo.exportsComponent) {
-      // Even for non-exported files, create wiki page but confidence = low
+    if (isPrimitiveUi(astInfo, code, file)) {
+      primitiveSources.add(file);
+      return { file, success: true, skipped: true, skipReason: "primitive", outputPath: entitiesDir };
     }
+
+    const codeIncluded = shouldIncludeCode(code);
 
     // Incrementality: check existing page hash
     const pageSlug = slugify(componentName) + ".md";
@@ -353,7 +413,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       if (existingHash === currentHash) {
         // Hash matches — reuse existing documentation without LLM call
         const oldDoc = extractWikiBody(existingContent);
-        fileDataList.push({ file, code, astInfo, componentName, doc: oldDoc, success: true, hash: currentHash });
+        fileDataList.push({ file, code, astInfo, componentName, doc: oldDoc, success: true, hash: currentHash, codeIncluded });
         return { file, success: true, skipped: true, skipReason: "hash-match", outputPath: entitiesDir };
       }
     }
@@ -371,7 +431,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       doc = `Component **${componentName}**.\n\n*Documentation was not generated (LLM error).*`;
     }
 
-    fileDataList.push({ file, code, astInfo, componentName, doc, success, hash: currentHash });
+    fileDataList.push({ file, code, astInfo, componentName, doc, success, hash: currentHash, codeIncluded });
 
     return { file, success, outputPath: entitiesDir };
   }, opts, "Wiki generation");
@@ -411,7 +471,7 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
       type: "entity",
       tags: [data.astInfo.fileType, data.astInfo.exportsComponent ? "exported" : "internal"],
       source: data.file,
-      confidence: estimateConfidence(data.astInfo),
+      confidence: estimateConfidence({ codeIncluded: data.codeIncluded, llmOk: data.success }),
       hash: data.hash,
     };
 
@@ -442,18 +502,26 @@ export async function generateWiki(opts: CliOptions, wikiDir: string): Promise<v
     });
   }
 
-  // === Step 5: Archive removed pages ===
+  // === Step 5: Archive removed pages (source gone or skipped as primitive; not renames) ===
   const archivedPages: string[] = [];
   for (const existing of existingPages) {
-    if (!currentPages.has(existing)) {
-      const oldPath = path.join(entitiesDir, slugify(existing) + ".md");
-      if (fs.existsSync(oldPath)) {
-        const archiveDir = path.join(wikiDir, "_archive", ENTITIES_DIR);
-        fs.mkdirSync(archiveDir, { recursive: true });
-        fs.renameSync(oldPath, path.join(archiveDir, slugify(existing) + ".md"));
-        archivedPages.push(existing);
-      }
-    }
+    if (currentPages.has(existing)) continue;
+    const oldPath = path.join(entitiesDir, slugify(existing) + ".md");
+    if (!fs.existsSync(oldPath)) continue;
+    const existingContent = fs.readFileSync(oldPath, "utf-8");
+    const sourceFromPage = readWikiSource(existingContent);
+    const resolvedSource = sourceFromPage
+      ? (path.isAbsolute(sourceFromPage) ? sourceFromPage : path.resolve(sourceFromPage))
+      : null;
+    const sourceExists = resolvedSource ? fs.existsSync(resolvedSource) : false;
+    const skippedAsPrimitive = sourceFromPage != null && (
+      primitiveSources.has(sourceFromPage) || (resolvedSource != null && primitiveSources.has(resolvedSource))
+    );
+    if (!shouldArchiveWikiPage({ sourceFromPage, sourceExists, skippedAsPrimitive })) continue;
+    const archiveDir = path.join(wikiDir, "_archive", ENTITIES_DIR);
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.renameSync(oldPath, path.join(archiveDir, slugify(existing) + ".md"));
+    archivedPages.push(existing);
   }
 
   // === Step 6: Write index.md ===
@@ -532,17 +600,17 @@ function updateAgentsMd(wikiDir: string, projectRoot: string): void {
   const block = `${WIKI_MARKER_START}
 ## Wiki Documentation
 
-The project has an auto-generated [LLM Wiki](${relWiki}/) with per-component documentation.
+The project has an [LLM Wiki](${relWiki}/) — a map of non-trivial modules, not a second copy of the source.
 
 **For the agent:**
 
-1. When working on a component, first check \`${relWiki}/entities/\` for its documentation page
-2. When you add new props, behavior, or components — update or regenerate the wiki
-3. To regenerate: \`npx react-docgen-ai --src ./src --wiki\`
+1. Orient from \`${relWiki}/index.md\`. Open one \`${relWiki}/entities/\` page for the module you are changing — do not load the whole wiki.
+2. If wiki and code disagree, trust the code (and \`docs/INTEGRATION.md\` if present).
+3. Do not regenerate the wiki unless asked. Do not update wiki pages for every prop change.
 
 Key files:
-- \`${relWiki}/index.md\` — component catalog
-- \`${relWiki}/entities/\` — per-component pages
+- \`${relWiki}/index.md\` — catalog
+- \`${relWiki}/entities/\` — pages for non-trivial modules
 - \`${relWiki}/log.md\` — change history
 ${WIKI_MARKER_END}`;
 

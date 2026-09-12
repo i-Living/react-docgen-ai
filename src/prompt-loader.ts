@@ -124,7 +124,7 @@ const PROMPT_BY_TYPE: Record<FileType, string> = {
 /**
  * Loads type-specific prompt for documentation generation.
  * Selects prompt file based on astInfo.fileType.
- * Uses compact AST format instead of JSON + auto-mode for code.
+ * Uses compact AST format instead of JSON. Source is included unless the file is extremely long.
  * @param astInfo - Component information from AST (with fileType field)
  * @param code - Component source code
  * @returns Complete prompt with substituted values

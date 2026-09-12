@@ -7,13 +7,18 @@ Source code:
 {{CODE}}
 
 Create Markdown documentation with the following sections (skip any section with no data):
-1. **Description** — hook purpose and main task
+1. **Description** — this hook's contract: what callers must not get wrong
 2. **Parameters** — all parameters with types and descriptions
 3. **Return Value** — structure and types
 4. **Internal State** — useState, useReducer
 5. **Effects** — useEffect, useLayoutEffect and their dependencies
 6. **Side Effects**
 7. **Usage Notes** — nuances, limitations
+
+Rules:
+- Document the contract of this file, not JSX structure.
+- Do not invent time/space complexity.
+- Skip any section with no data.
 
 Format: Markdown only. Language: English. Style: technical, concise.
 Do not output your reasoning process — only the final documentation.

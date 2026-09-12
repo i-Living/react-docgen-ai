@@ -7,11 +7,16 @@ Source code:
 {{CODE}}
 
 Create Markdown documentation with the following sections (skip any section with no data):
-1. **Description** — type/interface purpose
+1. **Description** — this type's contract: what callers must not get wrong
 2. **Structure** — each property with type and description
 3. **Inheritance** — extends, implements relationships
 4. **Generics** — generic parameters and constraints
 5. **Related Types** — related interfaces or types
+
+Rules:
+- Document the contract of this file, not a restatement of the source line by line.
+- Do not invent time/space complexity.
+- Skip any section with no data.
 
 Format: Markdown only. Language: English. Style: technical, concise.
 Do not output your reasoning process — only the final documentation.

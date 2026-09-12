@@ -7,12 +7,16 @@ Source code:
 {{CODE}}
 
 Create Markdown documentation with the following sections (skip any section with no data):
-1. **Description** — function/module purpose
+1. **Description** — this module's contract: what callers must not get wrong
 2. **Parameters** — all parameters with types and descriptions
 3. **Return Value** — type and description
 4. **Algorithm** — how the function works
-5. **Complexity** — time and space (if applicable)
-6. **Limitations** — edge cases, known limitations
+5. **Limitations** — edge cases, known limitations
+
+Rules:
+- Document the contract of this file, not a restatement of the source line by line.
+- Do not invent time/space complexity.
+- Skip any section with no data.
 
 Format: Markdown only. Language: English. Style: technical, concise.
 Do not output your reasoning process — only the final documentation.

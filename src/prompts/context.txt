@@ -7,12 +7,17 @@ Source code:
 {{CODE}}
 
 Create Markdown documentation with the following sections (skip any section with no data):
-1. **Description** — context purpose
+1. **Description** — this context's contract: what callers must not get wrong
 2. **Provider** — provider parameters and logic
 3. **Context Value** — structure and data types
 4. **Context Hooks** — useXyzContext and others
 5. **Context State** — internal state, if any
 6. **Context Methods** — functions for state changes
+
+Rules:
+- Document the contract of this file, not JSX structure.
+- Do not invent time/space complexity.
+- Skip any section with no data.
 
 Format: Markdown only. Language: English. Style: technical, concise.
 Do not output your reasoning process — only the final documentation.

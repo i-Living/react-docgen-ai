@@ -140,18 +140,23 @@ describe('compact-format', () => {
   });
 
   describe('shouldIncludeCode', () => {
-    it('should return false for files <= 100 lines', () => {
-      const code = 'line\n'.repeat(99) + 'line'; // exactly 100 lines
-      expect(shouldIncludeCode(code)).toBe(false);
-    });
-
-    it('should return true for files > 100 lines', () => {
-      const code = 'line\n'.repeat(101);
+    it('should return true for short files', () => {
+      const code = 'line\n'.repeat(99) + 'line';
       expect(shouldIncludeCode(code)).toBe(true);
     });
 
-    it('should return false for empty file', () => {
-      expect(shouldIncludeCode('')).toBe(false);
+    it('should return true at the omit threshold (400 lines)', () => {
+      const code = 'line\n'.repeat(399) + 'line';
+      expect(shouldIncludeCode(code)).toBe(true);
+    });
+
+    it('should return false for files over 400 lines', () => {
+      const code = 'line\n'.repeat(401);
+      expect(shouldIncludeCode(code)).toBe(false);
+    });
+
+    it('should return true for empty file', () => {
+      expect(shouldIncludeCode('')).toBe(true);
     });
   });
 
@@ -177,7 +182,7 @@ describe('compact-format', () => {
       expect(payload.AST_INFO).toContain('Name: BigComponent');
     });
 
-    it('should omit code for short files', () => {
+    it('should include code for files under the omit threshold', () => {
       const info: ComponentInfo = {
         name: 'SmallComponent',
         props: [],
@@ -194,8 +199,29 @@ describe('compact-format', () => {
 
       const payload = buildPromptPayload(info, code);
 
-      expect(payload.CODE).toContain('code omitted');
+      expect(payload.CODE).toBe(code);
       expect(payload.AST_INFO).toContain('Name: SmallComponent');
+    });
+
+    it('should omit code for extremely long files', () => {
+      const info: ComponentInfo = {
+        name: 'HugeComponent',
+        props: [],
+        state: [],
+        effects: [],
+        handlers: [],
+        jsxTree: ['div'],
+        exportsComponent: true,
+        fileType: 'component',
+        hasContext: false,
+        hasStore: false,
+      };
+      const code = 'x\n'.repeat(401);
+
+      const payload = buildPromptPayload(info, code);
+
+      expect(payload.CODE).toContain('code omitted');
+      expect(payload.AST_INFO).toContain('Name: HugeComponent');
     });
   });
 });

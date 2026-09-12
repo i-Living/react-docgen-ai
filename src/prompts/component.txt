@@ -7,13 +7,19 @@ Source code:
 {{CODE}}
 
 Create Markdown documentation with the following sections (skip any section with no data):
-1. **Description** — brief component purpose
+1. **Description** — this module's contract: what callers must not get wrong
 2. **Props** — each prop with type and description
 3. **State** — useState hooks
 4. **Effects** — useEffect hooks and their dependencies
 5. **Event Handlers** — handler functions
 6. **Logic** — how the component works
 7. **Key Features**
+
+Rules:
+- Document the contract of this file, not JSX structure.
+- Do not write that the component "renders a div" or list host HTML tags.
+- Do not invent time/space complexity.
+- Skip any section with no data.
 
 Format: Markdown only. Language: English. Style: technical, concise.
 Do not output your reasoning process — only the final documentation.

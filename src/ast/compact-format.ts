@@ -4,14 +4,14 @@
  * Instead of JSON.stringify(astInfo) (~600-800 tokens per component),
  * forms a compact text representation (~50-100 tokens).
  *
- * Auto-mode: if source ≤ MAX_COMPACT_LINES lines — send only
- * compact signatures (no code). Otherwise — signatures + code.
+ * Wiki prompts always include source. Only extremely long files omit CODE
+ * so the model still sees AST signatures.
  */
 
 import { ComponentInfo } from "../types.js";
 
-/** Threshold: files longer than this get code, shorter — only signatures */
-const MAX_COMPACT_LINES = 100;
+/** Omit source only above this line count. Shorter files always send CODE. */
+const MAX_OMIT_LINES = 400;
 
 /**
  * Builds compact text representation of ComponentInfo.
@@ -71,19 +71,18 @@ export function toCompactAst(info: ComponentInfo): string {
 }
 
 /**
- * Determines whether to send source code to LLM.
- * Files ≤ MAX_COMPACT_LINES lines — signatures enough.
- * Longer — code needed for logic understanding.
+ * Whether to send source code to the LLM.
+ * Default is yes; only very long files omit CODE.
  */
 export function shouldIncludeCode(code: string): boolean {
   const lineCount = code.split("\n").length;
-  return lineCount > MAX_COMPACT_LINES;
+  return lineCount <= MAX_OMIT_LINES;
 }
 
 /**
  * Builds payload for LLM prompt:
  * - compact AST (always)
- * - source code (only if shouldIncludeCode)
+ * - source code (unless the file is extremely long)
  *
  * Returns an object with fields for prompt substitution.
  */

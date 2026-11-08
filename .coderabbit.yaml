@@ -1,4 +1,5 @@
 # CodeRabbit configuration — react-docgen-ai
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # Reference: https://docs.coderabbit.ai/reference/configuration
 # Scope: this repo is a published TypeScript CLI (npm), ESM, Bun for scripts and tests, tsc for typecheck.
 

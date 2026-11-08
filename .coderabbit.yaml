@@ -1,0 +1,99 @@
+# CodeRabbit configuration — react-docgen-ai
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Reference: https://docs.coderabbit.ai/reference/configuration
+# Scope: this repo is a published TypeScript CLI (npm), ESM, Bun for scripts and tests, tsc for typecheck.
+
+language: en-US
+early_access: false
+
+tone_instructions: "Be concise. Skip praise and generic advice. Name the file, the risk and the fix. No new runtime dependencies: prefer the standard library."
+
+reviews:
+  # "chill" keeps only meaningful findings inline; "quiet" hides too much for a solo repo,
+  # "assertive" is noisy on a codebase this small.
+  profile: chill
+
+  high_level_summary: true
+  poem: false
+  abort_on_close: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "wip"
+      - "skip-review"
+
+  # Generated and vendored files carry no review value.
+  path_filters:
+    - "!dist/**"
+    - "!node_modules/**"
+    - "!test-out/**"
+    - "!bun.lock"
+    - "!docs/**/*.png"
+
+  # Different parts of this repo fail in different ways — review guidance per area.
+  path_instructions:
+    - path: "src/ast/**"
+      instructions: |
+        AST extraction on top of Babel. Check specifically:
+        - visitor coverage: every node type the extractor claims to support is handled, unknown nodes degrade gracefully instead of throwing
+        - no mutation of the shared AST or of cached nodes
+        - deterministic output order, because extracted data is fed into LLM prompts
+        - performance on large files: no repeated full traversals, no quadratic loops over nodes
+
+    - path: "src/prompts/**"
+      instructions: |
+        Prompt templates are data, not code. Check:
+        - no API keys, absolute local paths or personal data leaking into prompts
+        - the output format described in the prompt still matches what the parser expects (JSON shape, closing markers)
+        - instruction wording stays consistent with the types in src/types.ts
+
+    - path: "src/llm-client.ts"
+      instructions: |
+        LLM client and provider abstraction. Check: timeout and abort handling, non-2xx responses,
+        malformed or truncated JSON, streaming errors, and that API keys are never logged or embedded
+        into error messages or thrown objects.
+
+    - path: "src/opencode-provider.ts"
+      instructions: |
+        Provider integration. Check: rate limits, session/header handling, malformed payloads,
+        retry behaviour, and that credentials come from the environment only.
+
+    - path: "src/cli.ts"
+      instructions: |
+        Flags, exit codes and stdout format are public API for users of this npm package. Flag any
+        breaking change to flags, exit codes or output that is not reflected in README/docs.
+
+    - path: "bin/**"
+      instructions: |
+        Executable entry point. Check: shebang, ESM resolution, errors reported to stderr with a non-zero exit code.
+
+    - path: "__tests__/**"
+      instructions: |
+        bun test suite. Check: descriptive test names, error paths and edge cases covered, no real network
+        calls (mocks live in src/__mocks__), no assertions depending on execution order.
+
+    - path: "docs/**"
+      instructions: |
+        Documentation. Check: commands and flags match the current CLI, links resolve, examples are runnable.
+
+    # Repo-wide rules that do not fit in tone_instructions (schema limit: 250 characters).
+    - path: "**/*"
+      instructions: |
+        Repo-wide rules:
+        - The published npm package keeps its runtime dependency list deliberately minimal: do not
+          propose new runtime dependencies, prefer the standard library or an existing dependency.
+        - Never propose publishing, version bumps or changelog entries.
+        - Every finding must name the file, the concrete risk and the fix. Skip findings that are only
+          style preferences the project has not adopted anywhere else.
+
+knowledge_base:
+  learnings:
+    scope: local
+
+chat:
+  # Allows @coderabbitai questions in pull requests without a manual mention each time.
+  auto_reply: true

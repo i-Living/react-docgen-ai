@@ -5,11 +5,7 @@
 language: en-US
 early_access: false
 
-tone_instructions: >-
-  Be concise and concrete. Skip praise, summaries of what the code does and generic advice.
-  For every finding name the file, the concrete risk and the fix. Do not propose new runtime
-  dependencies: the published package keeps its dependency list deliberately minimal, so suggest
-  a stdlib or existing-dependency solution instead. Never propose publishing or version bumps.
+tone_instructions: "Be concise. Skip praise and generic advice. Name the file, the risk and the fix. No new runtime dependencies: prefer the standard library."
 
 reviews:
   # "chill" keeps only meaningful findings inline; "quiet" hides too much for a solo repo,
@@ -82,6 +78,16 @@ reviews:
     - path: "docs/**"
       instructions: |
         Documentation. Check: commands and flags match the current CLI, links resolve, examples are runnable.
+
+    # Repo-wide rules that do not fit in tone_instructions (schema limit: 250 characters).
+    - path: "**/*"
+      instructions: |
+        Repo-wide rules:
+        - The published npm package keeps its runtime dependency list deliberately minimal: do not
+          propose new runtime dependencies, prefer the standard library or an existing dependency.
+        - Never propose publishing, version bumps or changelog entries.
+        - Every finding must name the file, the concrete risk and the fix. Skip findings that are only
+          style preferences the project has not adopted anywhere else.
 
 knowledge_base:
   learnings:

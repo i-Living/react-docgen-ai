@@ -5,14 +5,19 @@
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+// Directory of the running module. `__dirname` is not defined in ESM, so the published
+// (Node) build needs it computed from import.meta.url; Bun resolves the same expression.
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 /** Loads .env from project root (next to package.json) */
 function loadEnv(): void {
   // Look for .env in project directory (climb from dist/ if running after build)
   const searchPaths = [
     path.resolve(process.cwd(), ".env"),
-    path.resolve(__dirname, "..", ".env"),
-    path.resolve(__dirname, ".env"),
+    path.resolve(moduleDir, "..", ".env"),
+    path.resolve(moduleDir, ".env"),
   ];
 
   for (const envPath of searchPaths) {

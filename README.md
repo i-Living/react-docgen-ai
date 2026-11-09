@@ -16,7 +16,7 @@ An advanced CLI tool for automatic documentation and annotation of React project
 ## 🚀 Installation
 
 ```bash
-# Requirements: Bun >= 1.3, Node.js 16+
+# Requirements: Bun >= 1.4, Node.js 20+
 bun install
 bun run build
 ```

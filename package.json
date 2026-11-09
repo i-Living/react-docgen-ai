@@ -8,6 +8,23 @@
   "bin": {
     "react-docgen-ai": "./bin/react-docgen-ai.js"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/i-Living/react-docgen-ai.git"
+  },
+  "homepage": "https://github.com/i-Living/react-docgen-ai#readme",
+  "bugs": {
+    "url": "https://github.com/i-Living/react-docgen-ai/issues"
+  },
   "scripts": {
     "build": "tsc && bun run copy-prompts",
     "clean": "bun -e \"const fs = require('fs'); fs.rmSync('dist', {recursive: true, force: true});\"",

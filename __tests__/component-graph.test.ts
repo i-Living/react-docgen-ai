@@ -4,8 +4,8 @@
  * @version 1.0.0
  */
 
-import { buildComponentGraph, graphToDot, graphToMarkdown } from '../dist/ast/component-graph.js';
-import { FileInfo } from '../dist/types.js';
+import { buildComponentGraph, graphToDot, graphToMarkdown } from '../src/ast/component-graph.js';
+import { FileInfo } from '../src/types.js';
 
 describe('Component Graph', () => {
   describe('buildComponentGraph', () => {
@@ -135,7 +135,11 @@ describe('Component Graph', () => {
       expect(result.CustomButton.file).toBe('src/components/CustomButton.tsx');
     });
 
-    it('should skip files without default export', () => {
+    // Named exports of any kind are kept in the graph on purpose: the extractor marks
+    // hooks, stores and utils as exported too (see ast-extractor.ts), and the pipeline
+    // classifies them later via `fileType` and filters them in wiki-generator.
+    // A lower-case name is not a component id, so the node falls back to the file name.
+    it('keeps a non-component named export in the graph', () => {
       const files: FileInfo[] = [
         {
           path: 'src/utils/helper.ts',
@@ -158,8 +162,9 @@ describe('Component Graph', () => {
 
       const result = buildComponentGraph(files);
       expect(result).toHaveProperty('Component');
-      expect(result).not.toHaveProperty('helper');
-      expect(Object.keys(result)).toHaveLength(1);
+      expect(result).toHaveProperty('helper');
+      expect(result.helper.children).toEqual([]);
+      expect(Object.keys(result)).toHaveLength(2);
     });
 
     it('should handle complex nested components', () => {
@@ -429,7 +434,9 @@ describe('Component Graph', () => {
       expect(graph).toHaveProperty('App');
       expect(graph).toHaveProperty('Header');
       expect(graph).toHaveProperty('Main');
-      expect(graph).not.toHaveProperty('helper');
+      // Same rule as above: named exports stay in the graph, filtering happens later.
+      expect(graph).toHaveProperty('helper');
+      expect(graph.helper.children).toEqual([]);
 
       expect(dot).toContain('digraph Components');
       expect(dot).toContain('"App" -> "Header"');

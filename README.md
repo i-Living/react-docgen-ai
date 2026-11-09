@@ -117,9 +117,7 @@ Four-tier system for minimizing LLM costs:
 | `bun run build` | Compile TypeScript |
 | `bun run dev` | Auto-rebuild on changes |
 | `bun run start` | Run |
-| `bun run test` | Core tests (no mocks) |
-| `bun run test:mock` | Tests with mock modules |
-| `bun run test:all` | All tests |
+| `bun run test` | All tests (each file in an isolated module registry) |
 | `bun run typecheck` | Type checking |
 | `bun run clean` | Clean dist |
 
@@ -160,15 +158,17 @@ src/
 The project uses **Bun test** (unified runner, no Jest).
 
 ```bash
-# Core 98 tests (pure functions, AST, pipeline)
+# All 135 tests
 bun run test
-
-# Mock tests (isolated due to mock.module)
-bun run test:mock
-
-# All 117 tests
-bun run test:all
 ```
+
+`bun run test` runs every file in `__tests__/` with `--isolate`, so each file gets a
+fresh module registry: the `mock.module` calls in the annotator and generate-graph
+tests no longer leak into the rest of the suite. Requires Bun **1.4+** (the version
+pinned in `packageManager` and in CI).
+
+The same checks run in CI on every push and pull request: `typecheck` → `build` →
+`test` (see `.github/workflows/ci.yml`).
 
 ## 🤝 Contributing
 

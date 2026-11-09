@@ -31,5 +31,8 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Smoke test the built CLI
+        run: node dist/cli.js --help
+
       - name: Tests
         run: bun run test

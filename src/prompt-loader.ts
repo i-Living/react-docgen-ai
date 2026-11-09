@@ -6,8 +6,14 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { FileType } from "./types.js";
 import { buildPromptPayload, toCompactAst } from "./ast/compact-format.js";
+
+// Directory of the running module: dist/ when installed from npm, src/ in development.
+// `__dirname` is not defined in ESM, and swallowing that error (as this file used to)
+// left prompts unresolved for global installs.
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 let _promptDirOverride: string | null = null;
 
@@ -40,21 +46,16 @@ const getPromptsDirectory = (): string => {
     path.join(process.cwd(), 'dist', 'prompts')
   ];
 
-  // Also check paths relative to current module (if available)
-  try {
-    const currentDir = __dirname;
-    const moduleBasedPaths = [
-      path.join(currentDir, 'prompts'),
-      path.join(currentDir, '..', 'prompts'),
-      path.join(currentDir, '..', '..', 'src', 'prompts'),
-      path.join(currentDir, '..', '..', 'dist', 'prompts')
-    ];
-    
-    possiblePaths.push(...moduleBasedPaths);
-  } catch (error) {
-    // Ignore __dirname errors
-  }
-  
+  // Paths relative to this module: works for a global install, where cwd is the user's project.
+  const moduleBasedPaths = [
+    path.join(moduleDir, 'prompts'),
+    path.join(moduleDir, '..', 'prompts'),
+    path.join(moduleDir, '..', '..', 'src', 'prompts'),
+    path.join(moduleDir, '..', '..', 'dist', 'prompts')
+  ];
+
+  possiblePaths.push(...moduleBasedPaths);
+
   // Find first existing path
   for (const testPath of possiblePaths) {
     if (fs.existsSync(testPath)) {

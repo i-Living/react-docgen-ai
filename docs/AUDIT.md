@@ -95,7 +95,7 @@ cli.ts (Commander — парсинг аргументов)
 
 ### 2.3 Известные проблемы
 
-1. **mock.module cross-contamination** — моки глобальны, тесты с `mock.module` нельзя запускать вместе с остальными. Решение: `test` и `test:mock` разделены.
+1. **mock.module cross-contamination** — моки глобальны, тесты с `mock.module` нельзя запускать вместе с остальными. Решение: `test` и `test:mock` разделены. *(обновлено 2026-11: разделение убрано — `bun test __tests__/ --isolate` даёт каждому файлу свежий реестр модулей, Bun ≥1.4; 135 тестов, 0 падений)*
 2. **generate-graph.ts** — перечитывает файлы повторно (может использовать закэшированные данные)
 3. **cleanupOrphanedDocs** — не принимает CliOptions (гейтинг verbose/quiet не распространяется)
 
@@ -130,7 +130,7 @@ cli.ts (Commander — парсинг аргументов)
 2. **generate-graph.ts** — добавить опциональное кэширование FileInfo[]
 3. **cleanupOrphanedDocs** — передавать CliOptions для единообразного логирования
 4. **AUDIT.md** — авто-генерировать из package.json (version, deps)
-5. **CI** — добавить GitHub Actions: typecheck → test → test:mock
+5. **CI** — добавить GitHub Actions: typecheck → test → test:mock *(сделано 2026-11: `.github/workflows/ci.yml`, typecheck → build → test на push и PR)*
 
 ---
 

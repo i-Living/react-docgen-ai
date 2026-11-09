@@ -38,23 +38,17 @@ const getPromptsDirectory = (): string => {
     return _promptDirOverride;
   }
 
-  // Check multiple possible paths in priority order
+  // Bundled prompts ship next to the module: `src/prompts` in a checkout, `dist/prompts`
+  // when installed. They come first so an unrelated project's own `src/prompts` directory
+  // cannot shadow them; cwd-relative paths stay as a last resort for unusual layouts.
   const possiblePaths = [
-    // 2. Relative to source code (for development and testing)
-    path.join(process.cwd(), 'src', 'prompts'),
-    // 3. Relative to compiled code (for production)
-    path.join(process.cwd(), 'dist', 'prompts')
-  ];
-
-  // Paths relative to this module: works for a global install, where cwd is the user's project.
-  const moduleBasedPaths = [
     path.join(moduleDir, 'prompts'),
     path.join(moduleDir, '..', 'prompts'),
     path.join(moduleDir, '..', '..', 'src', 'prompts'),
-    path.join(moduleDir, '..', '..', 'dist', 'prompts')
+    path.join(moduleDir, '..', '..', 'dist', 'prompts'),
+    path.join(process.cwd(), 'src', 'prompts'),
+    path.join(process.cwd(), 'dist', 'prompts')
   ];
-
-  possiblePaths.push(...moduleBasedPaths);
 
   // Find first existing path
   for (const testPath of possiblePaths) {

@@ -32,7 +32,8 @@
     "dev": "tsc --watch",
     "start": "bun dist/cli.js",
     "test": "bun test __tests__/ --isolate",
-    "prepublishOnly": "bun run build && bun run test",
+    "prepack": "bun run build",
+    "prepublishOnly": "bun run test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

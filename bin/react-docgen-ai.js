@@ -10,13 +10,14 @@
  */
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const compiled = join(moduleDir, "..", "dist", "cli.js");
 
 if (existsSync(compiled)) {
-  await import(compiled);
+  // pathToFileURL keeps Windows drive letters and paths containing # or ? valid specifiers.
+  await import(pathToFileURL(compiled).href);
 } else {
-  await import(join(moduleDir, "..", "src", "cli.ts"));
+  await import(pathToFileURL(join(moduleDir, "..", "src", "cli.ts")).href);
 }
